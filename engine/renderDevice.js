@@ -1,0 +1,1 @@
+UltraWebEngine.RenderDevice = new JS.Interface(['clear', 'requestTick']);

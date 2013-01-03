@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Ultra Web Engine</title>
+		
+		<link href="css/bootstrap.css" rel="stylesheet">
+		<script>
+			ULTRA_WEB_ENGINE_BASE_PATH = '../';
+		</script>
+		<script type="text/javascript" src="http://code.jquery.com/jquery-1.8.3.min.js"></script>
+		<script type="text/javascript" src="libs/raphael.js" ></script>
+		<script type="text/javascript" src="../engine/JS.Class/src/loader-browser.js"></script>
+		<script type="text/javascript" src="builder/builder.js" ></script>
+		<script type="text/javascript" src="../engine/libs/glMatrix-0.9.5.min.js" ></script>
+
+
+		<script data-main="../engine/engine" src="../engine/libs/require.min.js"></script>
+
+		<script id="test-fs" type="x-shader/x-fragment">
+			precision mediump float;
+			
+		    vec4 getDiffuse(vec4 diffuse) {
+		    	return diffuse;
+		    }
+		</script>
+
+		<script id="shader-fs" type="x-shader/x-fragment">
+		    precision mediump float;
+
+		    varying vec2 vTextureCoord;
+		    varying vec3 vLightWeighting;
+
+		    uniform sampler2D uSampler;
+
+		    void main(void) {
+		        vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+		        vec4 diffuse = vec4(textureColor.rgb * vLightWeighting, textureColor.a);
+
+        		gl_FragColor = diffuse;//getDiffuse(diffuse);
+		    }
+		</script>
+
+		<script id="shader-vs" type="x-shader/x-vertex">
+		    attribute vec3 aVertexPosition;
+		    attribute vec3 aVertexNormal;
+		    attribute vec2 aTextureCoord;
+
+		    uniform mat4 uMVMatrix;
+		    uniform mat4 uMMatrix;
+		    uniform mat4 uPMatrix;
+		    uniform mat3 uNMatrix;
+
+		    varying vec2 vTextureCoord;
+		    varying vec3 vLightWeighting;
+
+		    void main(void) {
+		        gl_Position = uPMatrix * uMVMatrix * uMMatrix * vec4(aVertexPosition, 1.0);
+		        vTextureCoord = aTextureCoord;
+
+		        vec3 transformedNormal = uNMatrix * aVertexNormal;
+		        float directionalLightWeighting = max(dot(transformedNormal, vec3(-0.25, -0.25, -1.0)), 0.0);
+		        vLightWeighting = vec3(0.1, 0.1, 0.1) + vec3(0.8, 0.8, 0.8) * directionalLightWeighting;
+		    }
+		</script>
+
+		<script>
+			$(document).ready(function() {
+				JS.require('UltraWebEngine.ShaderEditor', function() {
+					var width = $('#holder').width();
+					var height = $(document).height() * 0.7;
+					
+					$('#attr-table').height($(document).height() * 0.2);
+					
+					var editor = new UltraWebEngine.ShaderEditor.Editor({
+						target : '#holder',
+						width : width,
+						height : height
+					});
+					
+					editor.addShaderType('Output', {
+						code : {
+							'webgl' : {
+								vertex : '%body%\n\n' + 
+									'void main() {\n'+
+									'\tgl_position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);\n'+
+									'\tgl_position = gl_position + %input_Pos%;\n'+
+								'}',
+								pixel : '%body%\n\n' + 
+									'void main() {\n'+
+									'\tgl_position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);\n'+
+									'\tgl_position = gl_position + %input_Pos%;\n'+
+								'}',
+							}
+						},
+						attr : {
+							name : 'String'
+						},
+						outputs : {
+						},
+						inputs : {
+							'Pos' : {
+								title : 'Position',
+								type : 'float4',
+								default : 'vec4(0.0, 0.0, 0.0, 0.0)'
+							},
+							'Diffuse' : {
+								title : 'Diffuse',
+								type : 'float4',
+								default : 'vec4(1.0, 0.0, 0.0, 1.0)'
+							}
+						}
+					});
+
+					editor.addShaderType('Input', {
+						code : {
+							'webgl' : {
+								vertex : 	'\t%output_Pos% = aVertexPosition;\n' +
+											'\t%output_UVS% = aVertexUVS;'
+								,
+								fragment : ''
+							}
+						},
+						attr : {
+							name : 'String'
+						},
+						outputs : {
+							'Pos' : {
+								title : 'Position',
+								type : 'float4'
+							},
+							'UVS' : {
+								title : 'UVS',
+								type : 'float2'
+							}
+						},
+						inputs : {
+							
+						}
+					});
+					
+					editor.addShaderType('TextureSample',{
+						code : {
+							'webgl' : 	'\tvec4 %output_Color% = texture2D(uSampler, %input_UVS%);\n' + 
+										'\tfloat %output_R% = vec4.x;\n' + 
+										'\tfloat %output_G% = vec4.y;\n' + 
+										'\tfloat %output_B% = vec4.z;\n' +
+										'\tfloat %output_A% = vec4.w;\n'
+						},
+						attr : {
+							name : 'String'
+						},
+						outputs : {
+							'Color' : {
+								title : 'Color',
+								type : 'float4'
+							},
+							'R' : {
+								title : 'R',
+								type : 'float'
+							},
+							'G' : {
+								title : 'G',
+								type : 'float'
+							},
+							'B' : {
+								title : 'B',
+								type : 'float'
+							},
+							'A' : {
+								title : 'A',
+								type : 'float'
+							}
+						},
+						inputs : {
+							'UVS' : {
+								title : 'UVS',
+								type : 'float2',
+								default : 'aVertexUVS'
+							}
+						}
+					});
+					
+					editor.addShaderType('Rotation',{
+						code : {
+							'webgl' : '\tvec4 %output_Rot% = texture2D(uSampler, %input_Time%);'
+						},
+						outputs : {
+							'Rot' : {
+								title : 'Rot',
+								type : 'float2'
+							}
+						},
+						inputs : {
+							'Time' : {
+								title : 'Time',
+								type : 'float',
+								default : '0.0'
+							}
+						},
+						attr : {
+							name : 'String'
+						}
+					});
+					
+					var out = editor.addNode('Output', {x : 0, y : 50, width: 150, height: 300}, {
+						type : 'Output',
+						movable : false
+					});
+
+					var input = editor.addNode('Input', {x : 800, y : 50, width: 150, height: 300}, {
+						type : 'Input',
+						movable : false
+					});
+					
+					var node1 = editor.addNode('TextureSample', {x : 250, y : 250, width: 130, height: 100}, {
+						type : 'TextureSample'
+					});
+					
+					var node3 = editor.addNode('TextureSample2', {x : 350, y : 350, width: 130, height: 100}, {
+						type : 'TextureSample'
+					});
+					
+					var node2 = editor.addNode('Rotation', {x : 150, y : 150, width: 100, height: 100}, {
+						type : 'Rotation'
+					});
+
+					var generate = function(root, shader, shaderTypes, program_type, compiled) {
+						var node = shader[root];
+						var type = shaderTypes[node.type];
+						var device = 'webgl';
+
+						if(_.isUndefined(compiled))
+							compiled = {};
+
+						if(compiled[root])
+							return { code : '', vars : compiled[root].vars };
+
+						var node_data = {
+							code: '',
+							vars : {}
+						};
+
+						node_data.code += _.isUndefined(type.code[device][program_type]) ? type.code[device] : type.code[device][program_type];
+
+						for(var input in type.inputs) {
+							if(!node.inputs[input]) {
+								//Replace with default
+								node_data.code = node_data.code.replace('%input_' + input + '%', type.inputs[input].default);
+								continue;
+							}
+
+							var input_code = generate(node.inputs[input].node, shader, shaderTypes, program_type, compiled);
+							if(node_data.code.indexOf('%body%') != -1) {
+								node_data.code = node_data.code.replace('%body%', input_code.code + '\n%body%');
+							} else {
+								node_data.code = input_code.code + '\n' + node_data.code;
+							}
+
+							node_data.code = node_data.code.replace('%input_' + input + '%', input_code.vars[node.inputs[input].key]);
+						}
+
+
+						for(var output in type.outputs) {
+							node_data.vars[output] = _.uniqueId(root + '_var_');
+							node_data.code = node_data.code.replace('%output_' + output + '%', node_data.vars[output]);
+						}
+
+						node_data.code = node_data.code.replace('%body%', '');
+
+						compiled[root] = node_data;
+
+						return node_data;
+					}
+					
+					$('#gen_code').click(function() {
+						var shader = editor.generateShaderXML();
+						//console.log(shader);
+
+						var code = generate('Output', shader, editor.shaderTypes, 'pixel');
+						//engine.shaderManager.createShader('generated_ps', { src : { webgl : code }, params : {
+						//}}, 'pixel');
+
+						$('#code_prev').val(code.code);
+					});
+				});
+
+
+				function degToRad(degrees) {
+			        return degrees * Math.PI / 180;
+			    }
+
+				var shader;
+				var texture;
+			    var pMatrix = mat4.create();
+
+			    var mesh;
+			    var camera;
+			    var engine;
+			    var rot = 1;
+				var onTick = function(e, engine, device) {
+					//Do some cooool stuff ???
+					mat4.perspective(45, device.gl.viewportWidth / device.gl.viewportHeight, 0.1, 1000.0, pMatrix);
+
+			        shader = engine.shaderManager.getShaderProgram(['basic_vs', 'basic_ps']);
+
+    				shader.setParam('uPMatrix', pMatrix);
+    				shader.setParam('uMVMatrix', camera.getMatrix());
+
+    				shader.setParam('uSampler', texture);
+
+    				//device.gl.blendFunc(device.gl.SRC_ALPHA, device.gl.ONE);
+            		//device.gl.enable(device.gl.BLEND);
+            		//device.gl.disable(device.gl.DEPTH_TEST);
+    				
+					mesh.render(shader);
+				}
+
+			    requirejs(['engine', 'camera/base_camera', 'resources/texture'], function (Ultra) {
+			    	engine = new Ultra.Web3DEngine.Engine({
+						device: 'WebGL',
+						target : document.getElementById("glcanvas")
+					});
+
+			    	engine.on('init', function(e, device) {
+			    		var vSrc = $('#shader-vs').text();
+						var pSrc = $('#shader-fs').text();
+						var testSrc = $('#test-fs').text();
+
+
+						mesh = new Ultra.Web3DEngine.Mesh(engine);
+						mesh.createFromFile('/engine/model?name=cube_with_diffuse_texture.3DS');
+						//mesh.createFromFile('/engine/model?name=Altair Model/altair.3ds');
+
+						var texMg = new Ultra.Resources.TextureManager({});
+						texMg.createTexture('test.png', { apa : 'nisse' });
+
+						engine.fileManager.loadFile('/assets/images/test.png', function(data) {
+							var img = new Image();
+							img.onload = function(e) {
+								texture = device.gl.createTexture();
+								device.gl.pixelStorei(device.gl.UNPACK_FLIP_Y_WEBGL, true);
+
+	        					device.gl.bindTexture(device.gl.TEXTURE_2D, texture);
+	        					device.gl.texImage2D(device.gl.TEXTURE_2D, 0, device.gl.RGBA, device.gl.RGBA, device.gl.UNSIGNED_BYTE, img);
+
+	        					device.gl.texParameteri(device.gl.TEXTURE_2D, device.gl.TEXTURE_MAG_FILTER, device.gl.LINEAR);
+						        device.gl.texParameteri(device.gl.TEXTURE_2D, device.gl.TEXTURE_MIN_FILTER, device.gl.LINEAR_MIPMAP_NEAREST);
+						        device.gl.generateMipmap(device.gl.TEXTURE_2D);
+
+						        device.gl.bindTexture(device.gl.TEXTURE_2D, null);
+							};
+
+							img.src = window.URL.createObjectURL(data.data);
+						});
+
+						engine.shaderManager.createShader('basic_vs', { src : { webgl : vSrc}, params : {
+							uMVMatrix : { type : 'mat4' },
+							uMMatrix : { type : 'mat4' },
+							uPMatrix : { type : 'mat4' },
+							uNMatrix : { type : 'mat3' },
+							aVertexPosition : { type : 'float3'},
+							aVertexNormal : { type : 'float3'},
+							aTextureCoord : { type : 'float2'}
+						}}, 'vertex');
+
+						engine.shaderManager.createShader('basic_ps', { src : { webgl : pSrc}, params : {
+							uSampler : { type : 'tex2d'}
+						}}, 'pixel');
+
+						engine.shaderManager.createShader('test', { src : { webgl : testSrc}, params : {
+						}}, 'pixel');
+
+						//shader = engine.shaderManager.getShaderProgram(['basic_vs', 'basic_ps', 'test']);
+						//var c = shader.compile(device);
+			       		//console.log(c);
+
+						engine.run();
+			    	});
+
+			    	var im = new Ultra.InputManager({ target : document.getElementById("glcanvas") });
+
+			    	camera = new Ultra.Web3DEngine.BaseCamera(engine, im);
+					engine.on('tick', onTick);
+					engine.init();
+			    	im.enable();
+					
+					$('#mesh_x, #mesh_y, #mesh_z').change(function() {
+						mesh.setRot(parseInt($('#mesh_x').val()), parseInt($('#mesh_y').val()), parseInt($('#mesh_z').val()));
+					});
+
+					$('#mesh').change(function() {
+						mesh.createFromFile('/engine/model?name=' + $('#mesh').val());
+						//mesh.setRot(parseInt($('#mesh_x').val()), parseInt($('#mesh_y').val()), parseInt($('#mesh_z').val()));
+					});
+				});
+
+				/*
+
+				function degToRad(degrees) {
+			        return degrees * Math.PI / 180;
+			    }
+
+			    JS.require('UltraWebEngine.InputManager', function() {
+			    	var im = new UltraWebEngine.InputManager({ target : document.getElementById("glcanvas") });
+			    	im.enable();
+			    	im.on('keydown', 13, function(e) {
+						console.log('Enter Down');
+			    	});
+
+			    	im.on('keyup', 13, function(e) {
+			    		console.log('Enter Up');
+			    		im.disable()
+;			    	});
+
+			    	im.on('mousedown', 0, function(e) {
+						console.log('Mouse Down');
+			    	});
+
+			    	im.on('mouseup', 0, function(e) {
+			    		console.log('Mouse Up');
+			    	});
+			    });
+				
+				JS.require('UltraWebEngine.Engine', function() {
+					var vShader;
+					var pShader;
+					var shader;
+
+					var vBuffer;
+					var iBuffer;
+					var nBuffer;
+
+					var mvMatrix = mat4.create();
+				    var mvMatrixStack = [];
+				    var pMatrix = mat4.create();
+
+				    function mvPushMatrix() {
+				        var copy = mat4.create();
+				        mat4.set(mvMatrix, copy);
+				        mvMatrixStack.push(copy);
+				    }
+
+				    function mvPopMatrix() {
+				        if (mvMatrixStack.length == 0) {
+				            throw "Invalid popMatrix!";
+				        }
+				        mvMatrix = mvMatrixStack.pop();
+				    }
+				    var rot = 1;
+					var onTick = function(engine, device) {
+						//Do some cooool stuff ???
+						mat4.perspective(45, device.gl.viewportWidth / device.gl.viewportHeight, 0.1, 1000.0, pMatrix);
+						mat4.identity(mvMatrix);
+
+        				mat4.translate(mvMatrix, [0.0, 0.0, -200.0]);
+        				mvPushMatrix();
+        				rot += 1;
+        				if(rot > 360)
+        					rot = 0;
+
+        				mat4.rotate(mvMatrix, degToRad(rot), [1, 1, 1]);
+
+						device.setShader(shader);
+
+						device.gl.uniformMatrix4fv(shader.pMatrixUniform, false, pMatrix);
+        				device.gl.uniformMatrix4fv(shader.mvMatrixUniform, false, mvMatrix);
+
+        				var normalMatrix = mat3.create();
+				        mat4.toInverseMat3(mvMatrix, normalMatrix);
+				        mat3.transpose(normalMatrix);
+				        device.gl.uniformMatrix3fv(shader.nMatrixUniform, false, normalMatrix);
+
+						device.drawIndex(vBuffer, iBuffer, nBuffer, shader);
+					}
+
+					var engine = new UltraWebEngine.Engine({
+						device: 'WebGL',
+						target : document.getElementById("glcanvas"),
+						onTick: onTick
+					});
+					
+					engine.init(function(device) {
+						//Preload resources!!!
+						var vSrc = $('#shader-vs').text();
+						var pSrc = $('#shader-fs').text();
+
+						vShader = device.createVertexShader(vSrc);
+						pShader = device.createPixelShader(pSrc);
+						shader = device.createShader(vShader, pShader);
+						JS.require('UltraWebEngine.Resources', function() {
+							var manager = new UltraWebEngine.Resources({});
+							manager.loadFileAsJson('/engine/model?name=cube_with_diffuse_texture.3DS', function(data) {
+							//manager.loadFile('/shader_builder/img/prev.png', function(data) {
+								//var imgURL = URL.createObjectURL(data);
+								console.log(data);
+								var mesh = data.Mesh[0];
+								//console.log(data.Mesh[1]);
+								var vertices = _.flatten(mesh.Vertices);
+								vBuffer = device.createVertexBuffer(vertices, 3);
+
+								var indices = _.flatten(_.reduce(mesh.Faces, function(list, item) { return list.concat(_.values(item))}, []));
+								iBuffer = device.createIndexBuffer(indices);
+
+								var normals = _.flatten(_.reduce(mesh.Normals, function(list, item) { return list.concat(_.values(item))}, []));
+								nBuffer = device.createVertexBuffer(normals, 3);
+
+								engine.run();
+							});
+						});
+
+						/*
+						var vertices = [
+				            // Front face
+				            -1.0, -1.0, 1.0,
+				             1.0, -1.0, 1.0,
+				             1.0, 1.0, 1.0,
+				            -1.0, 1.0, 1.0,
+
+				            // Back face
+				            -1.0, -1.0, -1.0,
+				            -1.0, 1.0, -1.0,
+				             1.0, 1.0, -1.0,
+				             1.0, -1.0, -1.0,
+
+				            // Top face
+				            -1.0, 1.0, -1.0,
+				            -1.0, 1.0, 1.0,
+				             1.0, 1.0, 1.0,
+				             1.0, 1.0, -1.0,
+
+				            // Bottom face
+				            -1.0, -1.0, -1.0,
+				             1.0, -1.0, -1.0,
+				             1.0, -1.0, 1.0,
+				            -1.0, -1.0, 1.0,
+
+				            // Right face
+				             1.0, -1.0, -1.0,
+				             1.0, 1.0, -1.0,
+				             1.0, 1.0, 1.0,
+				             1.0, -1.0, 1.0,
+
+				            // Left face
+				            -1.0, -1.0, -1.0,
+				            -1.0, -1.0, 1.0,
+				            -1.0, 1.0, 1.0,
+				            -1.0, 1.0, -1.0
+				        ];
+						vBuffer = device.createVertexBuffer(vertices, 3);
+
+						var cubeVertexIndices = [
+				            0, 1, 2, 0, 2, 3, // Front face
+				            4, 5, 6, 4, 6, 7, // Back face
+				            8, 9, 10, 8, 10, 11, // Top face
+				            12, 13, 14, 12, 14, 15, // Bottom face
+				            16, 17, 18, 16, 18, 19, // Right face
+				            20, 21, 22, 20, 22, 23 // Left face
+				        ];
+				        iBuffer = device.createIndexBuffer(cubeVertexIndices);
+						engine.run();
+					});
+				});
+				*/
+				
+			})
+			
+		</script>
+	</head>
+
+	<body style="padding-top:40px;background-color:#000">
+		<div class="navbar navbar-fixed-top" style="background-color:#fff">
+			<div style="width: auto; padding: 0 20px;" class="container">
+				<a href="#" class="brand">Title</a>
+				<ul class="nav">
+					<li class="active"><a href="#">Home</a></li>
+					<li><a href="#">Link</a></li>
+					<li><a href="#">Link</a></li>
+				</ul>
+			</div>
+		</div>
+		<div class="container-fluid">
+			<div class="row-fluid">
+				<div class="span2">
+					<canvas id="glcanvas" width="200" height="200" tabindex="0">
+						Your browser doesn't appear to support the HTML5 <code>&lt;canvas&gt;</code> element.
+					  </canvas>
+					<textarea id="code_prev"></textarea>
+					<input type="button" value="Generate" id="gen_code"/>
+					<input type="text" value="basic_ps" id="shader"/>
+					<img id="pelle" />
+				</div>
+				<div class="span10">
+					<div id="holder">
+						
+					</div>
+				</div>
+			</div>
+			<div class="row-fluid">
+				<div class="span2">
+				</div>
+				<div id="attr-table" class="span10" style="overflow: auto;">
+					<table class="table table-bordered table-condensed" style="background-color:#fff;">
+						<thead>
+							<tr>
+								<th>Name</th>
+								<th>Value</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>Name</td>
+								<td>
+									<label class="checkbox">
+										<input type="checkbox"> Check me out
+									</label>
+								</td>
+							</tr>
+							<tr>
+								<td>Name</td>
+								<td><input value="Apa" /></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>

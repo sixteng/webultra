@@ -1,0 +1,131 @@
+<shaders>
+	<shader name="basic_vs" type="vertex">
+		<src target="webgl">
+			attribute vec3 aVertexPosition;
+		    attribute vec3 aVertexNormal;
+		    attribute vec2 aTextureCoord;
+
+		    uniform mat4 uMVMatrix;
+		    uniform mat4 uMMatrix;
+		    uniform mat4 uPMatrix;
+		    uniform mat3 uNMatrix;
+
+		    varying vec2 vTextureCoord;
+		    varying vec3 vLightWeighting;
+
+		    void main(void) {
+		        gl_Position = uPMatrix * uMVMatrix * uMMatrix * vec4(aVertexPosition, 1.0);
+		        vTextureCoord = aTextureCoord;
+
+		        vec3 transformedNormal = uNMatrix * aVertexNormal;
+		        float directionalLightWeighting = max(dot(transformedNormal, vec3(-0.25, -0.25, -1.0)), 0.0);
+		        vLightWeighting = vec3(0.1, 0.1, 0.1) + vec3(0.8, 0.8, 0.8) * directionalLightWeighting;
+		    }
+		</src>
+		<params>
+			<param name="uMVMatrix" type="mat4" />
+			<param name="uMMatrix" type="mat4" />
+			<param name="uPMatrix" type="mat4" />
+			<param name="uNMatrix" type="mat3" />
+			<param name="aVertexNormal" type="float3" />
+			<param name="aVertexPosition" type="float3" />
+			<param name="aTextureCoord" type="float2" />
+		</params>
+	</shader>
+	<shader name="basic_ps" type="pixel">
+		<src target="webgl">
+			precision mediump float;
+
+		    varying vec2 vTextureCoord;
+		    varying vec3 vLightWeighting;
+
+		    uniform sampler2D uSampler;
+
+		    vec4 getDiffuse(vec4 diffuse) {
+		    	return diffuse;
+		    }
+
+		    void main(void) {
+		        vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+		        vec4 diffuse = vec4(textureColor.rgb * vLightWeighting, textureColor.a);
+
+        		gl_FragColor = getDiffuse(diffuse);
+		    }
+		</src>
+		<params>
+			<param name="uSampler" type="tex2d" />
+		</params>
+	</shader>
+	<shader name="basic_terrain_vs" type="vertex">
+		<src target="webgl">
+			attribute vec3 aVertexPosition;
+		    uniform mat4 uMVMatrix;
+		    uniform mat4 uMMatrix;
+		    uniform mat4 uPMatrix;
+
+		    uniform vec2 halfPlaneSize;
+        	uniform vec2 planeSize;
+        	uniform vec3 cameraPos;
+        	uniform vec2 planePos;
+        	uniform vec3 lightDir;
+
+        	uniform sampler2D uSampler;
+
+        	varying vec4 vColor;
+        	varying vec3 vLightWeighting;
+
+		    void main(void) {
+				vec2 uv = (aVertexPosition.xy + (planeSize * planePos)) / (planeSize * 2.0);
+				vColor = texture2D(uSampler, uv);
+
+				float s11 = vColor.x;
+
+				float s01 = texture2D(uSampler, uv + vec2(-1, 0)).x;
+				float s21 = texture2D(uSampler, uv + vec2(1, 0)).x;
+				float s10 = texture2D(uSampler, uv + vec2(0, -1)).x;
+				float s12 = texture2D(uSampler, uv + vec2(0, 1)).x;
+				
+				vec3 va = normalize(vec3(2.0, 0 ,s21-s11));
+				vec3 vb = normalize(vec3(0, 2.0 ,s12-s10));
+
+				vec4 vNormal = vec4( cross(va,vb), s11 );
+
+				float height = vColor.x * 25.0;
+				//vColor = vec4(0.5, 0, 0, 1.0);
+				vec4 pos = uPMatrix * uMVMatrix * vec4(aVertexPosition.x + (planeSize.x * planePos.x), aVertexPosition.y + (planeSize.y * planePos.y), height, 1.0);
+				float directionalLightWeighting = max(dot(vNormal.xyz, normalize(-lightDir)), 0.0);
+
+				vLightWeighting = vec3(0.1, 0.1, 0.1) + vec3(0.8, 0.8, 0.8) * directionalLightWeighting;
+
+            	gl_Position = pos;
+		    }
+		</src>
+		<params>
+			<param name="uMVMatrix" type="mat4" />
+			<param name="uMMatrix" type="mat4" />
+			<param name="uPMatrix" type="mat4" />
+			<param name="aVertexPosition" type="float3" />
+			<param name="uSampler" type="tex2d" />
+			<param name="halfPlaneSize" type="float2" />
+			<param name="planeSize" type="float2" />
+			<param name="planePos" type="float2" />
+			<param name="lightDir" type="float3" />
+			<param name="cameraPos" type="float3" />
+		</params>
+	</shader>
+	<shader name="basic_terrain_ps" type="pixel">
+		<src target="webgl">
+			precision mediump float;
+
+		    varying vec4 vColor;
+		    varying vec3 vLightWeighting;
+
+		    void main(void) {
+		    	vec4 diffuse = vec4(vColor.rgb * vLightWeighting, vColor.a);
+        		gl_FragColor = diffuse;
+		    }
+		</src>
+		<params>
+		</params>
+	</shader>
+</shaders>

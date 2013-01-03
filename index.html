@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+		<title>Ultra Web Engine</title>
+		<META HTTP-EQUIV="Pragma" CONTENT="no-cache">
+		<META HTTP-EQUIV="Expires" CONTENT="-1">
+		<script>
+			window.ULTRA_WEB_ENGINE_BASE_PATH = '';
+		</script>
+		<script type="text/javascript" src="http://code.jquery.com/jquery-1.8.3.min.js"></script>
+		<script type="text/javascript" src="engine/libs/glMatrix-0.9.5.min.js" ></script>
+
+		<script data-main="main" src="engine/libs/require.min.js"></script>
+	</head>
+
+	<body>
+	  <canvas id="glcanvas" width="640" height="480" tabindex="0">
+		Your browser doesn't appear to support the HTML5 <code>&lt;canvas&gt;</code> element.
+	  </canvas>
+	  Rot X : <input type="text" id="mesh_x" value="0" />
+	  Rot Y : <input type="text" id="mesh_y" value="0" />
+	  Rot Z : <input type="text" id="mesh_z" value="0" /></br>
+	  Model : <input type="text" id="mesh" value="cube_with_diffuse_texture.3DS" /></br>
+	  Wireframe : <input type="checkbox" id="wireframe" /></br>
+	  <input type="text" id="posx" /></br>
+	   <input type="text" id="posy" /></br>
+	    <input type="text" id="posz" /></br>
+	</body>
+</html>
