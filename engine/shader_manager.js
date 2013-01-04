@@ -68,12 +68,20 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'jquery', 'ultra_engine/mainengine
 
 	Ultra.Web3DEngine.ShaderProgram = function(shaders) {
 		this.shaders = shaders;
+		var texIndex = 0;
 
 		this.params = _.reduce(shaders, function(params, shader) {
 			_.extend(params, shader.params);
 			return params;
 		}, {});
 
+		for(var key in this.params) {
+			if(this.params[key].type.indexOf('tex') == 0) {
+				this.params[key].tex_index = texIndex;
+				texIndex++;
+			}
+		}
+		
 		this.compiled = {};
 	};
 

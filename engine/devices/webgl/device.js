@@ -9,39 +9,74 @@ requirejs.config({
 define([
 	'ultra/ultra',
 	'underscore',
+	'Jvent',
+	'ultra_engine/devices/webgl/shader_utils',
 	'ultra_engine/devices/webgl/webgl_utils'
 ],
-function(Ultra, _, WebGLUtils) {
+function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 	'use strict';
+
+	//Setup engine device structure
 	if(_.isUndefined(Ultra.Web3DEngine.Devices)) {
 		Ultra.Web3DEngine.Devices = {};
 	}
 
+	//Define the WebGL namespace
 	if(_.isUndefined(Ultra.Web3DEngine.Devices.WebGL)) {
 		Ultra.Web3DEngine.Devices.WebGL = {};
 	}
 
+	//WebGL Device
 	Ultra.Web3DEngine.Devices.WebGL.Device = function(engine, config) {
+		var self = this;
 		this.engine = engine;
 		this.config = config;
-		this.gl = WebGLUtils.setupWebGL(config.target, [], function() {
-			console.log('Error2');
+
+		var defaultCanvas = document.querySelectorAll('canvas');
+		if(defaultCanvas.length === 0 && (_.isUndefined(config.target) || config.target.nodeName !== 'CANVAS') ) {
+			throw 'Missing Canvas Element';
+		} else if(defaultCanvas.length !== 0) {
+			defaultCanvas = defaultCanvas[0];
+		}
+
+		//Setup engine default config
+		_.defaults(config, {
+			target : defaultCanvas,
+			clearColor : [0.0, 0.0, 0.0, 1.0]
 		});
 
+		//Init the WebGL context
+		this.gl = WebGLUtils.setupWebGL(config.target, [], function() {
+			self.trigger('error', 'createError');
+		});
+
+		config.target.onresize = this.onResize.bind(this);
+
+		if(!this.gl) return;
+
+		//Set the viewport width / height
 		this.gl.viewportWidth = config.target.width;
 		this.gl.viewportHeight = config.target.height;
 
-		this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+		//Set clearcolor and an unique id for this device
+		this.gl.clearColor(this.config.clearColor[0], this.config.clearColor[1], this.config.clearColor[2], this.config.clearColor[3]);
 		this.gl.enable(this.gl.DEPTH_TEST);
 		this.uid = _.uniqueId('webgl');
+
+		this.gl.viewport(0, 0, this.gl.viewportWidth, this.gl.viewportHeight);
 	};
 
-	_.extend(Ultra.Web3DEngine.Devices.WebGL.Device.prototype, {
+	_.extend(Ultra.Web3DEngine.Devices.WebGL.Device.prototype, Jvent.prototype, {
 		clear: function() {
-			if(this.gl) {
-				this.gl.viewport(0, 0, this.gl.viewportWidth, this.gl.viewportHeight);
-				this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-			}
+			if(!this.gl) return;
+
+			
+			this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+		},
+		onResize: function() {
+			this.gl.viewportWidth = config.target.width;
+			this.gl.viewportHeight = config.target.height;
+			this.gl.viewport(0, 0, this.gl.viewportWidth, this.gl.viewportHeight);
 		},
 		getName: function() {
 			return this.uid;
@@ -50,12 +85,18 @@ function(Ultra, _, WebGLUtils) {
 			return 'webgl';
 		},
 		createVertexBuffer: function(data, size) {
+			if(!this.gl) return null;
+
 			return this.createBuffer(data, size, data.length / size, this.gl.ARRAY_BUFFER, Float32Array);
 		},
 		createIndexBuffer: function(data) {
+			if(!this.gl) return null;
+
 			return this.createBuffer(data, 1, data.length, this.gl.ELEMENT_ARRAY_BUFFER, Uint16Array);
 		},
 		createBuffer: function(data, size, count, type, Data_type) {
+			if(!this.gl) return null;
+
 			var buffer = this.gl.createBuffer();
 			this.gl.bindBuffer(type, buffer);
 
@@ -72,9 +113,13 @@ function(Ultra, _, WebGLUtils) {
 			this.deleteBuffer(buffer);
 		},
 		deleteBuffer: function(buffer) {
+			if(!this.gl) return;
+
 			this.gl.deleteBuffer(buffer);
 		},
 		compilePixelShader: function(shader) {
+			if(!this.gl) return null;
+
 			var src = shader.src[this.getType()];
 			if(!src)
 				return null;
@@ -96,6 +141,8 @@ function(Ultra, _, WebGLUtils) {
 			return compiledshader;
 		},
 		compileVertexShader: function(shader) {
+			if(!this.gl) return null;
+
 			var src = shader.src[this.getType()];
 			if(!src)
 				return null;
@@ -123,6 +170,8 @@ function(Ultra, _, WebGLUtils) {
 			return null;
 		},
 		compileShaderProgram: function(shader_program) {
+			if(!this.gl) return null;
+
 			var compiledShaders = [];
 			var i;
 			for(i = 0; i < shader_program.shaders.length; i += 1) {
@@ -158,6 +207,8 @@ function(Ultra, _, WebGLUtils) {
 			return shaderProgram;
 		},
 		setShader: function(shader) {
+			if(!this.gl) return null;
+
 			var cShader = shader.compile(this);
 			if(!cShader)
 				return false;
@@ -167,6 +218,8 @@ function(Ultra, _, WebGLUtils) {
 			return true;
 		},
 		createTexture: function(src, config) {
+			if(!this.gl) return null;
+
 			var texture = this.gl.createTexture();
 			this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true);
 
@@ -182,6 +235,8 @@ function(Ultra, _, WebGLUtils) {
 			return texture;
 		},
 		drawIndex: function(iBuffer, shader, type) {
+			if(!this.gl) return null;
+
 			if(!this.setShader(shader))
 				return;
 
@@ -194,19 +249,10 @@ function(Ultra, _, WebGLUtils) {
 					this.gl.bindBuffer(this.gl.ARRAY_BUFFER, shader.params[key].data);
 					this.gl.vertexAttribPointer(shader.params[key].webgl.loc, shader.params[key].data.itemSize, this.gl.FLOAT, false, 0, 0);
 				} else if(shader.params[key].webgl.type == 'uniform') {
-					if(shader.params[key].type == 'mat4') {
-						this.gl.uniformMatrix4fv(shader.params[key].webgl.loc, false, shader.params[key].data);
-					} else if(shader.params[key].type == 'mat3') {
-						this.gl.uniformMatrix3fv(shader.params[key].webgl.loc, false, shader.params[key].data);
-					} else if(shader.params[key].type == 'tex2d') {
-						this.gl.activeTexture(this.gl.TEXTURE0);
-						this.gl.bindTexture(this.gl.TEXTURE_2D, shader.params[key].data);
-						this.gl.uniform1i(shader.params[key].webgl.loc, 0);
-					} else if(shader.params[key].type == 'float2') {
-						this.gl.uniform2fv(shader.params[key].webgl.loc, new Float32Array(shader.params[key].data));
-					} else if(shader.params[key].type == 'float3') {
-						this.gl.uniform3fv(shader.params[key].webgl.loc, new Float32Array(shader.params[key].data));
-					}
+					if(!ShaderUtils['set' + shader.params[key].type])
+						continue;
+
+					ShaderUtils['set' + shader.params[key].type](this.gl, shader.params[key]);
 				}
 			}
 
@@ -222,6 +268,8 @@ function(Ultra, _, WebGLUtils) {
 			}
 		},
 		getContext: function() {
+			if(!this.gl) return null;
+
 			return this.gl;
 		}
 	});
