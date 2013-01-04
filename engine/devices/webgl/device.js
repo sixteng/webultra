@@ -33,32 +33,38 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 		this.config = config;
 
 		var defaultCanvas = document.querySelectorAll('canvas');
-		if(defaultCanvas.length === 0 && (_.isUndefined(config.target) || config.target.nodeName !== 'CANVAS') ) {
+		if(defaultCanvas.length === 0 && (_.isUndefined(this.config.target) || this.config.target.nodeName !== 'CANVAS') ) {
 			throw 'Missing Canvas Element';
 		} else if(defaultCanvas.length !== 0) {
 			defaultCanvas = defaultCanvas[0];
 		}
 
 		//Setup engine default config
-		_.defaults(config, {
+		_.defaults(this.config, {
 			target : defaultCanvas,
 			clearColor : [0.0, 0.0, 0.0, 1.0]
 		});
 
 		//Init the WebGL context
-		this.gl = WebGLUtils.setupWebGL(config.target, [], function() {
+		this.gl = WebGLUtils.setupWebGL(this.config.target, [], function() {
 			self.trigger('error', 'createError');
 		});
 
-		config.target.onresize = this.onResize.bind(this);
+		this.config.target.onresize = this.onResize.bind(this);
 
 		if(!this.gl) return;
 
 		//Set the viewport width / height
-		this.gl.viewportWidth = config.target.width;
-		this.gl.viewportHeight = config.target.height;
+		this.gl.viewportWidth = this.config.target.width;
+		this.gl.viewportHeight = this.config.target.height;
 
 		//Set clearcolor and an unique id for this device
+
+		if(this.config.clearColor.length < 4) {
+			for(var i = this.config.clearColor.length; i < 4; i++)
+				this.config.clearColor[i] = 0.0;
+		}
+
 		this.gl.clearColor(this.config.clearColor[0], this.config.clearColor[1], this.config.clearColor[2], this.config.clearColor[3]);
 		this.gl.enable(this.gl.DEPTH_TEST);
 		this.uid = _.uniqueId('webgl');
@@ -74,8 +80,10 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 			this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 		},
 		onResize: function() {
-			this.gl.viewportWidth = config.target.width;
-			this.gl.viewportHeight = config.target.height;
+			if(!this.gl) return;
+			
+			this.gl.viewportWidth = this.config.target.width;
+			this.gl.viewportHeight = this.config.target.height;
 			this.gl.viewport(0, 0, this.gl.viewportWidth, this.gl.viewportHeight);
 		},
 		getName: function() {

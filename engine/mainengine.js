@@ -20,6 +20,17 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/input_manager', 'ult
 	Ultra.Web3DEngine.TRIANGLE_STRIP = 1;
 	Ultra.Web3DEngine.TRIANGLES = 2;
 
+	//Interface for the devices, this is to make sure all functions exists for the device
+	//to work correctly
+	Ultra.Web3DEngine.Devices.Interface = [
+		'clear', 'getName', 'getType',
+		'createVertexBuffer', 'createIndexBuffer',
+		'deleteVertexBuffer', 'deleteIndexBuffer',
+		'compilePixelShader', 'compileVertexShader',
+		'compileShaderProgram', 'setShader',
+		'createTexture', 'drawIndex', 'getContext'
+	];
+
 	Ultra.Web3DEngine.Engine = function(config) {
 		var self = this;
 		//TODO: Check that all params are included
@@ -52,6 +63,16 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/input_manager', 'ult
 				this.config[key] = value;
 			}
 		},
+		validateDevice: function(device) {
+			for(var i = 0; i < Ultra.Web3DEngine.Devices.Interface.length; i += 1) {
+				if(!_.isFunction(device[Ultra.Web3DEngine.Devices.Interface[i]])) {
+					console.log('Device missing function ' + Ultra.Web3DEngine.Devices.Interface[i]);
+					return false;
+				}
+			}
+
+			return true;
+		},
 		createRenderDevice: function(key, device, config) {
 			var self = this;
 			if(_.isUndefined(Ultra.Web3DEngine.Devices[device])) {
@@ -62,6 +83,13 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/input_manager', 'ult
 			}
 
 			this.renderDevices[key] = new Ultra.Web3DEngine.Devices[device].Device(this, config);
+
+			//validate device, and made sure it has all functions
+			if(!this.validateDevice(this.renderDevices[key])) {
+				delete this.renderDevices[key];
+				return;
+			}
+
 			this.emit('init', this.renderDevices[key]);
 		},
 		getRenderDevice: function(key) {
