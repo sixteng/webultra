@@ -150,7 +150,14 @@ define(['ultra/ultra', 'underscore'], function(Ultra, _) {
 
 		var transaction = this.db.transaction([table], 'readwrite');
 		var store = transaction.objectStore(table);
-		var request = store.put(data);
-		request.onsuccess = callback;
+		try {
+			var request = store.put(data);
+			request.onsuccess = callback;
+		} catch(e) {
+			//TODO: Fix for chrome, as it dosent support blob in indexDB as of yet
+			setTimeout(function() {
+				callback();
+			});
+		}
 	};
 });
