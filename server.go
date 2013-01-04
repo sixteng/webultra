@@ -31,13 +31,23 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
+var hFile http.Handler
+
+func fileHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache")
+	hFile.ServeHTTP(w, r)
+}
+
 func main() {
 	path, err := os.Getwd()
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	http.Handle("/", http.FileServer(http.Dir(path)))
+	hFile = http.FileServer(http.Dir(path))
+
+	http.HandleFunc("/", fileHandler)
 	http.HandleFunc("/engine/model", handler)
+
 	panic(http.ListenAndServe(":8080", nil))
 }

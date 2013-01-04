@@ -37,8 +37,8 @@ define(['ultra/ultra', 'underscore'], function(Ultra, _) {
 
 			// Interim solution for Google Chrome to create an objectStore. Will be deprecated
 			if(self.db.setVersion) {
-				if(self.db.version != this.dbVersion) {
-					var setVersion = self.db.setVersion(this.dbVersion);
+				if(self.db.version != self.dbVersion) {
+					var setVersion = self.db.setVersion(self.dbVersion);
 					setVersion.onsuccess = function() {
 						self.onupgradeneeded(self.db);
 						self.state = true;
@@ -104,7 +104,7 @@ define(['ultra/ultra', 'underscore'], function(Ultra, _) {
 		if(!this.checkDB('get', arguments)) return;
 
 		try {
-			var transaction = this.db.transaction([table], IDBTransaction.READ_ONLY);
+			var transaction = this.db.transaction([table], 'readonly');
 			var request = transaction.objectStore(table).get(key);
 
 			var data = [];
@@ -124,7 +124,7 @@ define(['ultra/ultra', 'underscore'], function(Ultra, _) {
 		if(!this.checkDB('getAll', arguments)) return;
 
 		try {
-			var transaction = this.db.transaction([table], IDBTransaction.READ_ONLY);
+			var transaction = this.db.transaction([table], 'readonly');
 			var request = transaction.objectStore(table).openCursor();
 
 			var data = [];
@@ -148,7 +148,7 @@ define(['ultra/ultra', 'underscore'], function(Ultra, _) {
 	Ultra.IndexDB.prototype.insert = function(table, data, callback) {
 		if(!this.checkDB('insert', arguments)) return;
 
-		var transaction = this.db.transaction([table], IDBTransaction.READ_WRITE);
+		var transaction = this.db.transaction([table], 'readwrite');
 		var store = transaction.objectStore(table);
 		var request = store.put(data);
 		request.onsuccess = callback;
