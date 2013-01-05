@@ -9,9 +9,8 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/mainengine'], functi
         return degrees * Math.PI / 180;
     }
 
-	Ultra.Web3DEngine.BaseCamera = function(engine, input_handler) {
+	Ultra.Web3DEngine.BaseCamera = function(input_handler) {
 		var self = this;
-		this.engine = engine;
 		this.input_handler = input_handler;
 		this.view_matrix = mat4.create();
 		this.camera_matrix = mat4.create();
@@ -28,7 +27,6 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/mainengine'], functi
 		this.speed = 100;
 		this.dirty = true;
 
-		this.engine.on('tick', this.tick.bind(this));
 		this.input_handler.on('mousedown', 0, function(e) {
 			self.moving = true;
 			self.lastX = e.pageX;
@@ -127,9 +125,11 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/mainengine'], functi
 			return this.pos;
 		},
 		setPos: function(pos) {
-			this.pos.x = pos.x;
-			this.pos.y = pos.y;
-			this.pos.z = pos.z;
+			this.pos[0] = pos[0];
+			this.pos[1] = pos[1];
+			this.pos[2] = pos[2];
+
+			this.dirty = true;
 		},
 		getRot: function() {
 			return _.clone(this.rot);

@@ -17,6 +17,10 @@ requirejs(['ultra/ultra', 'ultra_engine/mainengine', 'ultra_engine/camera/base_c
 	var shader;
 	var texture;
 	var heightmap;
+
+	var mask;
+	var combined;
+
     var pMatrix = mat4.create();
 
     var mesh;
@@ -80,7 +84,7 @@ requirejs(['ultra/ultra', 'ultra_engine/mainengine', 'ultra_engine/camera/base_c
 	}
 
     var rot = 1;
-    var lightDir = vec3.create([1, -1, -0.5]);
+    var lightDir = vec3.create([0, 0, 100]);
     var lightRot = mat4.create();
 
     var terrMat = mat4.create();
@@ -96,7 +100,7 @@ requirejs(['ultra/ultra', 'ultra_engine/mainengine', 'ultra_engine/camera/base_c
 
 		shader.setParam('uPMatrix', pMatrix);
 		shader.setParam('uMVMatrix', camera.getMatrix());
-		shader.setParam('cameraPos', camera.getPos());
+		//shader.setParam('cameraPos', camera.getPos());
 
 		$('#posx').val(camera.pos[0] / terrSize);
 		$('#posy').val(camera.pos[1] / terrSize);
@@ -104,11 +108,16 @@ requirejs(['ultra/ultra', 'ultra_engine/mainengine', 'ultra_engine/camera/base_c
 
 		//console.log(camera.pos[0]);
 		shader.setParam('planePos', [0, 0]);
+		shader.setParam('planeSize', [terrSize, terrSize]);
+
 		shader.setParam('uSampler', heightmap);
-		shader.setParam('aVertexPosition', terrain2Vert);
+		shader.setParam('mask', mask);
+		shader.setParam('combined', combined);
+
+		shader.setParam('aVertexPosition', terrainVert);
 
 		mat4.identity(lightRot);
-		mat4.rotate(lightRot, degToRad(0.5), [0, 1, 1]);
+		mat4.rotate(lightRot, degToRad(0.5), [10, 0, 0]);
 		lightDir = mat4.multiplyVec3(lightRot, lightDir);
 
 		//device.gl.blendFunc(device.gl.SRC_ALPHA, device.gl.ONE);
@@ -116,14 +125,14 @@ requirejs(['ultra/ultra', 'ultra_engine/mainengine', 'ultra_engine/camera/base_c
 		//device.gl.disable(device.gl.DEPTH_TEST);
 		//mesh.render(device, shader);
 		
-		shader.setParam('planeSize', [terrSize, terrSize]);
+		
 		shader.setParam('lightDir', lightDir);
 
-		device.drawIndex(terrain2Indices, shader, Ultra.Web3DEngine.TRIANGLE_STRIP);
-
-		shader.setParam('planePos', [1, 0]);
-		shader.setParam('aVertexPosition', terrainVert);
 		device.drawIndex(terrainIndices, shader, Ultra.Web3DEngine.TRIANGLE_STRIP);
+
+		//shader.setParam('planePos', [1, 0]);
+		//shader.setParam('aVertexPosition', terrainVert);
+		//device.drawIndex(terrainIndices, shader, Ultra.Web3DEngine.TRIANGLE_STRIP);
 	};
 
 
@@ -163,9 +172,19 @@ requirejs(['ultra/ultra', 'ultra_engine/mainengine', 'ultra_engine/camera/base_c
 			texture = tex.data;
 		});
 
-		var tex2 = texMg.getTexture('/assets/images/height_map_large_300.png', device, {});
+		var tex2 = texMg.getTexture('/assets/images/heightmap.png', device, {});
 		tex2.on('load', function(e, tex) {
 			heightmap = tex.data;
+		});
+
+		var tex3 = texMg.getTexture('/assets/images/combined.png', device, {});
+		tex3.on('load', function(e, tex) {
+			combined = tex.data;
+		});
+
+		var tex4 = texMg.getTexture('/assets/images/mask.png', device, {});
+		tex4.on('load', function(e, tex) {
+			mask = tex.data;
 		});
 
 		engine.shaderManager.loadFromFile('/assets/shaders/basic.xml');
@@ -189,7 +208,9 @@ requirejs(['ultra/ultra', 'ultra_engine/mainengine', 'ultra_engine/camera/base_c
 
 	var im = new Ultra.InputManager({ target : document.getElementById("glcanvas") });
 
-	camera = new Ultra.Web3DEngine.BaseCamera(engine, im);
+	camera = new Ultra.Web3DEngine.BaseCamera(im);
+	camera.setPos([0.0, 0.0, 25.0]);
+	engine.on('tick', camera.tick.bind(camera));
 	engine.on('tick', onTick);
 	engine.init();
 	im.enable();
@@ -204,8 +225,8 @@ requirejs(['ultra/ultra', 'ultra_engine/mainengine', 'ultra_engine/camera/base_c
 
 	$('#wireframe').change(function() {
 		if($('#wireframe').is(':checked'))
-			engine.getRenderDevice('WebGL').wireframe = true;
+			engine.getRenderDevice('WebGL').setConfig('wireframe', true);
 		else
-			engine.getRenderDevice('WebGL').wireframe = false;
+			engine.getRenderDevice('WebGL').setConfig('wireframe', false);
 	});
 });

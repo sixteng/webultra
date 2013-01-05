@@ -57,7 +57,9 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'jquery', 'ultra_engine/mainengine
 					});
 
 					$(shader).find('src').each(function(p, src) {
-						data.src[$(src).attr('target')] = $(src).html();
+						var str = $(src).text();
+
+						data.src[$(src).attr('target')] = $(src).text();
 					});
 
 					self.createShader($(shader).attr('name'), data, $(shader).attr('type'));

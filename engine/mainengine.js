@@ -109,7 +109,7 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/input_manager', 'ult
 
 			this.frames++;
 			if(timeNow - this.lastFPSTime > 1000) {
-				console.log(this.frames);
+				//console.log(this.frames);
 				this.lastFPSTime = timeNow;
 				this.frames = 0;
 			}

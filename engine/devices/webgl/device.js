@@ -42,7 +42,8 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 		//Setup engine default config
 		_.defaults(this.config, {
 			target : defaultCanvas,
-			clearColor : [0.0, 0.0, 0.0, 1.0]
+			clearColor : [0.0, 0.0, 0.5, 0.5],
+			wireframe : false
 		});
 
 		//Init the WebGL context
@@ -85,6 +86,9 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 			this.gl.viewportWidth = this.config.target.width;
 			this.gl.viewportHeight = this.config.target.height;
 			this.gl.viewport(0, 0, this.gl.viewportWidth, this.gl.viewportHeight);
+		},
+		setConfig: function(key, value) {
+			this.config[key] = value;
 		},
 		getName: function() {
 			return this.uid;
@@ -266,7 +270,7 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 
 			this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, iBuffer);
 
-			if(this.wireframe === true) {
+			if(this.config.wireframe === true) {
 				this.gl.drawElements(this.gl.LINES, iBuffer.numItems, this.gl.UNSIGNED_SHORT, 0);
 			} else {
 				if(type == Ultra.Web3DEngine.TRIANGLE_STRIP)
