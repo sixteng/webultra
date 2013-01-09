@@ -1,4 +1,4 @@
-/*global: mat4:false, mat3:false*/
+/*global: mat4:false, mat3:false, vec3:false*/
 define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/mainengine'], function(Ultra, _, Jvent) {
 	'use strict';
 
@@ -9,121 +9,160 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/mainengine'], functi
         return degrees * Math.PI / 180;
     }
 
-	Ultra.Web3DEngine.Mesh = function(engine, name) {
+    Ultra.Web3DEngine.Terrain = function(engine) {
 		this.engine = engine;
-		this.data = {
-		};
+		this.patches = [];
+		this.planes = [];
+    };
+
+    _.extend(Ultra.Web3DEngine.Terrain.prototype, Jvent.prototype, {
+		addPatch: function(path, device, pos) {
+			var patch = new Ultra.Web3DEngine.TerrainPatch(this.engine);
+			patch.createFromFile(path, device);
+			this.patches.push(patch);
+
+
+			if(pos)
+				patch.setPos(pos[0], pos[1], 0);
+		},
+		buildPlanes: function(device) {
+			this.cells = 127;
+			this.size = 128;
+
+			var tVert = this.buildPlanePositions(this.cells, this.size / (this.cells + 1), 0.0);
+			var iVert = this.buildPlaneIndices(this.cells);
+
+			this.planes.push({ vBuffer : device.createVertexBuffer(tVert, 3), iBuffer : device.createIndexBuffer(iVert)});
+		},
+		buildPlanePositions: function( cells, scale, height ) {
+			//var halfGridSize = (gridSize - 1) * cellSize * 0.5;
+
+			var positions = [];
+			for (var y = 0; y < cells + 1; ++y) {
+				for (var x = 0; x < cells + 1; ++x) {
+					positions.push(x * scale);
+					positions.push(y * scale);
+					positions.push(height);
+				}
+			}
+			return positions;
+		},
+		buildPlaneIndices: function( cells ) {
+			var indices = [];
+			var count = cells + 1;
+			var odd = true;
+			var x;
+			for (var y = 0; y < cells; ++y) {
+				//if(y != 0)
+				//indices.push(indices[indices.length - 1]);
+
+				if(odd) {
+					for (x = 0; x < cells + 1; ++x) {
+						indices.push((y * count) + x);
+						indices.push(((y + 1) * count) + x);
+					}
+				} else {
+					for (x = 0; x < cells + 1; ++x) {
+						indices.push(((y + 1) * count) - (x + 1));
+						indices.push(((y + 1) * count) + (count - x - 1));
+					}
+				}
+
+
+				//if(y != (cells - 2))
+				//indices.push((y + 1) * cells + (cells - 1));
+
+				odd = !odd;
+			}
+			return indices;
+		},
+		render: function(device, camera) {
+			for(var i = 0; i < this.patches.length; i += 1) {
+				this.patches[i].render(device, camera, this.planes[0], 128);
+			}
+		}
+    });
+
+	Ultra.Web3DEngine.TerrainPatch = function(engine) {
+		this.engine = engine;
 
 		this.matrix = mat4.create();
 		mat4.identity(this.matrix);
-		//mat4.rotate(this.matrix, degToRad(90), [0, 1, 0]);
-		this.submeshes = [];
+
 		this.ready = false;
 		this.collection = {};
 		this.shaders = false;
+
+		this.heightMap = null;
+		this.combined = null;
+		this.mask = null;
+
+		//TODO: remove!
+		this.pos = [0, 0];
+		this.lightDir = vec3.create([0, 0, 100]);
 	};
 
-	_.extend(Ultra.Web3DEngine.Mesh.prototype, Jvent.prototype, {
+	_.extend(Ultra.Web3DEngine.TerrainPatch.prototype, Jvent.prototype, {
 		createFromFile: function(path, device) {
 			var self = this;
 
-			if(this.ready)
-				this.destroy(device);
+			var tex = this.engine.textureManager.getTexture('/assets/images/heightmap.png', device, {});
+			tex.on('load', function(e, tex) {
+				self.heightMap = tex.data;
+			});
 
-			var file = this.engine.fileManager.loadFileAsJson(path);
-			file.on('load', function(e, data) {
-				if(data === false) {
-					return;
-				}
+			var tex3 = this.engine.textureManager.getTexture('/assets/images/combined.png', device, {});
+			tex3.on('load', function(e, tex) {
+				self.combined = tex.data;
+			});
 
-				for(var i = 0; i < data.Mesh.length; i += 1) {
-					var submesh = new Ultra.Web3DEngine.Mesh(self.engine, 'SubMesh_' + i);
-					submesh.createFromData(device, data.Mesh[i]);
-					self.submeshes.push(submesh);
-				}
-
-				self.ready = true;
+			var tex4 = this.engine.textureManager.getTexture('/assets/images/mask.png', device, {});
+			tex4.on('load', function(e, tex) {
+				self.mask = tex.data;
 			});
 		},
 		destroy: function(device) {
-			this.ready = false;
-			for(var i = 0; i < this.submeshes.length; i += 1) {
-				this.submeshes[i].destroy(device);
-				delete this.submeshes[i];
-			}
 
-			if(this.data[device.getName()].vBuffer) {
-				this.engine.getRenderDevice().deleteVertexBuffer(this.data[device.getName()].vBuffer);
-			}
-
-			if(this.data[device.getName()].iBuffer) {
-				this.engine.getRenderDevice().deleteIndexBuffer(this.data[device.getName()].iBuffer);
-			}
-
-			if(this.data[device.getName()].nBuffer) {
-				this.engine.getRenderDevice().deleteVertexBuffer(this.data[device.getName()].nBuffer);
-			}
-
-			this.submeshes.length = 0;
 		},
-		createFromData: function(device, mesh) {
-			var vertices = _.flatten(mesh.Vertices);
+		render: function(device, camera, plane, size) {
+			var shader = this.engine.shaderManager.getShaderProgram(['basic_terrain_vs', 'basic_terrain_ps']);
+			if(!shader)
+				return;
 
-			this.data[device.getName()] = {};
+			shader.setParam('uPMatrix', camera.pMatrix);
+			shader.setParam('uMVMatrix', camera.getMatrix());
 
-			this.data[device.getName()].vBuffer = device.createVertexBuffer(vertices, 3);
+			shader.setParam('planePos', [this.pos[0], this.pos[1]]);
+			shader.setParam('planeSize', [size, size]);
 
-			var indices = _.flatten(_.reduce(mesh.Faces, function(list, item) { return list.concat(_.values(item));}, []));
-			this.data[device.getName()].iBuffer = device.createIndexBuffer(indices);
+			shader.setParam('uSampler', this.heightMap);
+			shader.setParam('mask', this.mask);
+			shader.setParam('combined', this.combined);
 
-			var normals = _.flatten(_.reduce(mesh.Normals, function(list, item) { return list.concat(_.values(item));}, []));
-			this.data[device.getName()].nBuffer = device.createVertexBuffer(normals, 3);
+			shader.setParam('aVertexPosition', plane.vBuffer);
 
-			var uvs = _.flatten(_.reduce(mesh.UVCoords, function(list, item) { return list.concat(_.values(item));}, []));
-			this.data[device.getName()].uvBuffer = device.createVertexBuffer(uvs, 2);
+			var lightRot = mat4.create();
 
-			this.ready = true;
-		},
-		render: function(device, shader, matrix) {
-			if(!this.ready) return;
+			mat4.identity(lightRot);
+			mat4.rotate(lightRot, degToRad(0.5), [10, 0, 0]);
+			this.lightDir = mat4.multiplyVec3(lightRot, this.lightDir);
 
-			if(matrix)
-				this.matrix = matrix;
+			shader.setParam('lightDir', this.lightDir);
 
-			//var shader = this.engine.shaderManager.getShaderProgram(this.shaders);
-			//if(!shader) return;
-
-
-			//shader.setParam('uMVMatrix', camera.getMatrix());
-
-			for(var i = 0; i < this.submeshes.length; i += 1) {
-				this.submeshes[i].render(device, shader, this.matrix);
-			}
-
-			if(_.isUndefined(this.data[device.getName()]) || _.isUndefined(this.data[device.getName()].vBuffer) || this.data[device.getName()].vBuffer === null) return;
-			
-			var normalMatrix = mat3.create();
-			mat4.toInverseMat3(this.matrix, normalMatrix);
-			mat3.transpose(normalMatrix);
-
-			shader.setParam('uMMatrix', this.matrix);
-			shader.setParam('uNMatrix', normalMatrix);
-
-			shader.setParam('aVertexPosition', this.data[device.getName()].vBuffer);
-			shader.setParam('aVertexNormal', this.data[device.getName()].nBuffer);
-			shader.setParam('aTextureCoord', this.data[device.getName()].uvBuffer);
-			//this.engine.getRenderDevice().gl.uniformMatrix4fv(shader.params.uMMatrix.loc, false, this.matrix);
-
-			device.drawIndex(this.data[device.getName()].iBuffer, shader, Ultra.Web3DEngine.TRIANGLES);
+			device.drawIndex(plane.iBuffer, shader, Ultra.Web3DEngine.TRIANGLE_STRIP);
 		},
 		setShaders: function(shaders) {
-			this.shaders = shaders;
+
 		},
 		setRot: function(x, y, z) {
 			mat4.identity(this.matrix);
 			mat4.rotate(this.matrix, degToRad(x), [1, 0, 0]);
 			mat4.rotate(this.matrix, degToRad(y), [0, 1, 0]);
 			mat4.rotate(this.matrix, degToRad(z), [0, 0, 1]);
+		},
+		setPos: function(x, y, z) {
+			this.pos = [x, y, z];
+			//mat4.rotate(this.matrix, degToRad(x), [1, 0, 0]);
 		}
 	});
 

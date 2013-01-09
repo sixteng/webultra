@@ -36,7 +36,7 @@
 		<src target="webgl">
 			precision mediump float;
 
-		    varying vec2 vTextureCoord;
+		   	varying vec2 vTextureCoord;
 		    varying vec3 vLightWeighting;
 
 		    uniform sampler2D uSampler;
@@ -47,7 +47,7 @@
 
 		    void main(void) {
 		        vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-		        vec4 diffuse = vec4(textureColor.rgb * vLightWeighting, textureColor.a);
+		       	vec4 diffuse = vec4(textureColor.rgb * vec3(0.8, 0.8, 0.8), textureColor.a);
 
         		gl_FragColor = getDiffuse(diffuse);
 		    }

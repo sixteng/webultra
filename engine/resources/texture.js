@@ -42,4 +42,7 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/common/indexed_db', 
 			return tex;
 		}
 	});
+
+	Ultra.Resources.TextureManager.Class = Ultra.Resources.TextureManager;
+	Ultra.Resources.TextureManager = new Ultra.Resources.TextureManager({});
 });

@@ -21,6 +21,12 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/mainengine'], functi
 		this.ready = false;
 		this.collection = {};
 		this.shaders = false;
+		this.root = this;
+		this.textures = {};
+
+		this.pos = [0, 0, 0];
+		this.rot = [0, 0, 0];
+		this.scale = [1, 1, 1];
 	};
 
 	_.extend(Ultra.Web3DEngine.Mesh.prototype, Jvent.prototype, {
@@ -39,6 +45,8 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/mainengine'], functi
 				for(var i = 0; i < data.Mesh.length; i += 1) {
 					var submesh = new Ultra.Web3DEngine.Mesh(self.engine, 'SubMesh_' + i);
 					submesh.createFromData(device, data.Mesh[i]);
+					submesh.index = i;
+					submesh.root = self;
 					self.submeshes.push(submesh);
 				}
 
@@ -84,24 +92,56 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/mainengine'], functi
 
 			this.ready = true;
 		},
-		render: function(device, shader, matrix) {
+		render: function(device, camera, shader, matrix) {
 			if(!this.ready) return;
 
 			if(matrix)
 				this.matrix = matrix;
 
-			//var shader = this.engine.shaderManager.getShaderProgram(this.shaders);
-			//if(!shader) return;
+			if(!shader) {
+				shader = this.engine.shaderManager.getShaderProgram(this.shaders);
+				if(!shader)
+					return;
+			}
 
-
-			//shader.setParam('uMVMatrix', camera.getMatrix());
+			shader.setParam('uPMatrix', camera.pMatrix);
+			shader.setParam('uMVMatrix', camera.getMatrix());
 
 			for(var i = 0; i < this.submeshes.length; i += 1) {
-				this.submeshes[i].render(device, shader, this.matrix);
+				this.submeshes[i].render(device, camera, shader, this.matrix);
 			}
 
 			if(_.isUndefined(this.data[device.getName()]) || _.isUndefined(this.data[device.getName()].vBuffer) || this.data[device.getName()].vBuffer === null) return;
 			
+			//TODO: FIX so loaded from file or material or something!!!
+			if(this.index == 7) {
+				return;
+			} else if(this.index === 0) {
+				shader.setParam('uSampler', this.root.textures['door']);
+			} else if(this.index == 1) {
+				shader.setParam('uSampler', this.root.textures['window2']);
+			} else if(this.index == 2) {
+				shader.setParam('uSampler', this.root.textures['window']);
+			} else if(this.index == 4) {
+				shader.setParam('uSampler', this.root.textures['wood_floor']);
+			} else if(this.index == 5) {
+				shader.setParam('uSampler', this.root.textures['plaster']);
+			} else if(this.index == 6) {
+				shader.setParam('uSampler', this.root.textures['sign']);
+			} else if(this.index == 8) {
+				shader.setParam('uSampler', this.root.textures['stone_wall']);
+			} else if(this.index == 9) {
+				shader.setParam('uSampler', this.root.textures['metal_rusted']);
+			} else if(this.index == 10) {
+				shader.setParam('uSampler', this.root.textures['roof']);
+			} else if(this.index == 11) {
+				shader.setParam('uSampler', this.root.textures['sign2']);
+			} else if(this.index == 12) {
+				shader.setParam('uSampler', this.root.textures['stone']);
+			} else {
+				shader.setParam('uSampler', null);
+			}
+
 			var normalMatrix = mat3.create();
 			mat4.toInverseMat3(this.matrix, normalMatrix);
 			mat3.transpose(normalMatrix);
@@ -119,11 +159,25 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/mainengine'], functi
 		setShaders: function(shaders) {
 			this.shaders = shaders;
 		},
+		setPos: function(x, y, z) {
+			this.pos = [x, y, z];
+			this.calcMatrix();
+		},
 		setRot: function(x, y, z) {
+			this.rot = [x, y, z];
+			this.calcMatrix();
+		},
+		setScale: function(x, y, z) {
+			this.scale = [x, y, z];
+			this.calcMatrix();
+		},
+		calcMatrix: function() {
 			mat4.identity(this.matrix);
-			mat4.rotate(this.matrix, degToRad(x), [1, 0, 0]);
-			mat4.rotate(this.matrix, degToRad(y), [0, 1, 0]);
-			mat4.rotate(this.matrix, degToRad(z), [0, 0, 1]);
+			mat4.rotate(this.matrix, degToRad(this.rot[0]), [1, 0, 0]);
+			mat4.rotate(this.matrix, degToRad(this.rot[1]), [0, 1, 0]);
+			mat4.rotate(this.matrix, degToRad(this.rot[2]), [0, 0, 1]);
+			mat4.translate(this.matrix, this.pos);
+			mat4.scale(this.matrix, this.scale);
 		}
 	});
 

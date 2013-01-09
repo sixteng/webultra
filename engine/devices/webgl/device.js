@@ -167,6 +167,7 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 			if(!this.gl.getShaderParameter(compiledshader, this.gl.COMPILE_STATUS)) {
 				//TODO: Add logging
 				//alert("An error occurred compiling the shaders: " + gl.getShaderInfoLog(shader));
+				console.log(this.gl.getShaderInfoLog(compiledshader));
 				return null;
 			}
 
@@ -232,19 +233,39 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 		createTexture: function(src, config) {
 			if(!this.gl) return null;
 
+			if (!this.isPowerOfTwo(src.width) || !this.isPowerOfTwo(src.height)) {
+				var canvas = document.createElement("canvas");
+				canvas.width = this.nextHighestPowerOfTwo(src.width);
+				canvas.height = this.nextHighestPowerOfTwo(src.height);
+				var ctx = canvas.getContext("2d");
+				ctx.drawImage(src, 0, 0, src.width, src.height);
+				src = canvas;
+			}
+
 			var texture = this.gl.createTexture();
 			this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true);
 
 			this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
 			this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, src);
 
-			this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
-			this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR_MIPMAP_NEAREST);
+			//this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+			//this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR_MIPMAP_NEAREST);
+			
 			this.gl.generateMipmap(this.gl.TEXTURE_2D);
 
 			this.gl.bindTexture(this.gl.TEXTURE_2D, null);
 
 			return texture;
+		},
+		isPowerOfTwo : function(x) {
+			return (x & (x - 1)) === 0;
+		},
+		nextHighestPowerOfTwo : function(x) {
+			--x;
+			for (var i = 1; i < 32; i <<= 1) {
+				x = x | x >> i;
+			}
+			return x + 1;
 		},
 		drawIndex: function(iBuffer, shader, type) {
 			if(!this.gl) return null;

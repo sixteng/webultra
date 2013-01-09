@@ -14,7 +14,9 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'jquery', 'ultra_engine/mainengine
 			var arrShaders = [];
 			for(var i = 0; i < shaders.length; i += 1) {
 				var s = this.getShader(shaders[i]);
-				if(s === null) return null;
+				if(s === null) {
+					return null;
+				}
 
 				arrShaders.push(s);
 			}

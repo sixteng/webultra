@@ -35,6 +35,7 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/input_manager', 'ult
 		var self = this;
 		//TODO: Check that all params are included
 		this.fileManager = Ultra.Resources.FileManager;
+		this.textureManager = Ultra.Resources.TextureManager;
 		this.cache = Ultra.Resources.CacheManager;
 		this.shaderManager = new Ultra.Web3DEngine.ShaderManager(this, {});
 		this.config = config;
@@ -109,7 +110,9 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/input_manager', 'ult
 
 			this.frames++;
 			if(timeNow - this.lastFPSTime > 1000) {
-				//console.log(this.frames);
+				if(this.config.renderFPS === true)
+					console.log(this.frames);
+				
 				this.lastFPSTime = timeNow;
 				this.frames = 0;
 			}
