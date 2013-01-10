@@ -24,7 +24,7 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/mainengine'], functi
 		this.moving = false;
 		this.lastX = 0;
 		this.lastY = 0;
-		this.speed = 100;
+		this.speed = 50;
 		this.dirty = true;
 
 		this.input_handler.on('mousedown', 0, function(e) {

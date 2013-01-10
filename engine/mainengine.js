@@ -19,6 +19,7 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/input_manager', 'ult
 
 	Ultra.Web3DEngine.TRIANGLE_STRIP = 1;
 	Ultra.Web3DEngine.TRIANGLES = 2;
+	Ultra.Web3DEngine.POINTS = 3;
 
 	//Interface for the devices, this is to make sure all functions exists for the device
 	//to work correctly
@@ -110,9 +111,9 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/input_manager', 'ult
 
 			this.frames++;
 			if(timeNow - this.lastFPSTime > 1000) {
-				if(this.config.renderFPS === true)
-					console.log(this.frames);
-				
+				if(this.config.renderFPS)
+					$(this.config.renderFPS).val(this.frames);
+
 				this.lastFPSTime = timeNow;
 				this.frames = 0;
 			}

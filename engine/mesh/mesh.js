@@ -156,6 +156,50 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/mainengine'], functi
 
 			device.drawIndex(this.data[device.getName()].iBuffer, shader, Ultra.Web3DEngine.TRIANGLES);
 		},
+		renderDebug: function(device, camera, shader, matrix) {
+			if(!this.ready) return;
+
+			if(matrix)
+				this.matrix = matrix;
+
+			if(!shader) {
+				shader = this.engine.shaderManager.getShaderProgram(this.shaders);
+				if(!shader)
+					return;
+			}
+
+			shader.setParam('uPMatrix', camera.pMatrix);
+			shader.setParam('uMVMatrix', camera.getMatrix());
+
+			for(var i = 0; i < this.submeshes.length; i += 1) {
+				this.submeshes[i].renderDebug(device, camera, shader, this.matrix);
+			}
+
+			if(_.isUndefined(this.data[device.getName()]) || _.isUndefined(this.data[device.getName()].vBuffer) || this.data[device.getName()].vBuffer === null) return;
+
+			var normalMatrix = mat3.create();
+			mat4.toInverseMat3(this.matrix, normalMatrix);
+			mat3.transpose(normalMatrix);
+
+			if(!this.nScale)
+				this.nScale = 0.0;
+
+			this.nScale += 0.01;
+			if(this.nScale > 1.0)
+				this.nScale = 0.0;
+
+			shader.setParam('nScale', this.nScale);
+			shader.setParam('uMMatrix', this.matrix);
+			shader.setParam('uNMatrix', normalMatrix);
+
+			shader.setParam('aVertexPosition', this.data[device.getName()].vBuffer);
+			shader.setParam('aVertexNormal', this.data[device.getName()].nBuffer);
+			shader.setParam('aTextureCoord', this.data[device.getName()].uvBuffer);
+			//this.engine.getRenderDevice().gl.uniformMatrix4fv(shader.params.uMMatrix.loc, false, this.matrix);
+
+			device.drawIndex(this.data[device.getName()].iBuffer, shader, Ultra.Web3DEngine.POINTS);
+			//device.draw(this.data[device.getName()].vBuffer.length, shader, Ultra.Web3DEngine.POINTS);
+		},
 		setShaders: function(shaders) {
 			this.shaders = shaders;
 		},

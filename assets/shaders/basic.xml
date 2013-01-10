@@ -1,5 +1,5 @@
 <shaders>
-	<shader name="basic_vs" type="vertex">
+	<shader name="basic_debug_normals_vs" type="vertex">
 		<src target="webgl">
 			attribute vec3 aVertexPosition;
 		    attribute vec3 aVertexNormal;
@@ -10,6 +10,59 @@
 		    uniform mat4 uPMatrix;
 		    uniform mat3 uNMatrix;
 
+		    uniform float nScale;
+
+		    varying vec2 vTextureCoord;
+		    varying vec3 vLightWeighting;
+
+		    void main(void) {
+		    	vec3 transformedNormal = normalize(uNMatrix * aVertexNormal);
+		    	vec3 offPos = aVertexPosition + aVertexNormal * nScale;
+
+		        vec4 pos = uPMatrix * uMVMatrix * uMMatrix * vec4(offPos, 1.0);
+
+		       
+		        gl_Position = pos;
+		        gl_PointSize = 2.0;
+		    }
+		</src>
+		<params>
+			<param name="uMVMatrix" type="mat4" />
+			<param name="uMMatrix" type="mat4" />
+			<param name="uPMatrix" type="mat4" />
+			<param name="uNMatrix" type="mat3" />
+			<param name="nScale" type="float" />
+			<param name="aVertexNormal" type="float3" />
+			<param name="aVertexPosition" type="float3" />
+			<param name="aTextureCoord" type="float2" />
+		</params>
+	</shader>
+	<shader name="basic_debug_ps" type="pixel">
+		<src target="webgl">
+			precision mediump float;
+
+		    uniform sampler2D uSampler;
+
+		    void main(void) {
+        		gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+		    }
+		</src>
+		<params>
+			<param name="uSampler" type="tex2d" />
+		</params>
+	</shader>
+	<shader name="basic_vs" type="vertex">
+		<src target="webgl">
+			attribute vec3 aVertexPosition;
+		    attribute vec3 aVertexNormal;
+		    attribute vec2 aTextureCoord;
+
+		    uniform mat4 uMVMatrix;
+		    uniform mat4 uMMatrix;
+		    uniform mat4 uPMatrix;
+		    uniform mat3 uNMatrix;
+		    uniform vec3 lightDir;
+
 		    varying vec2 vTextureCoord;
 		    varying vec3 vLightWeighting;
 
@@ -18,7 +71,7 @@
 		        vTextureCoord = aTextureCoord;
 
 		        vec3 transformedNormal = uNMatrix * aVertexNormal;
-		        float directionalLightWeighting = max(dot(transformedNormal, vec3(-0.25, -0.25, -1.0)), 0.0);
+		        float directionalLightWeighting = max(dot(transformedNormal, lightDir), 0.0);
 		        vLightWeighting = vec3(0.1, 0.1, 0.1) + vec3(0.8, 0.8, 0.8) * directionalLightWeighting;
 		    }
 		</src>
@@ -29,6 +82,7 @@
 			<param name="uNMatrix" type="mat3" />
 			<param name="aVertexNormal" type="float3" />
 			<param name="aVertexPosition" type="float3" />
+			<param name="lightDir" type="float3" />
 			<param name="aTextureCoord" type="float2" />
 		</params>
 	</shader>
@@ -47,7 +101,7 @@
 
 		    void main(void) {
 		        vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-		       	vec4 diffuse = vec4(textureColor.rgb * vec3(0.8, 0.8, 0.8), textureColor.a);
+		       	vec4 diffuse = vec4(textureColor.rgb * vLightWeighting, textureColor.a);
 
         		gl_FragColor = getDiffuse(diffuse);
 		    }

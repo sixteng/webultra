@@ -42,7 +42,7 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 		//Setup engine default config
 		_.defaults(this.config, {
 			target : defaultCanvas,
-			clearColor : [0.0, 0.0, 0.5, 0.5],
+			clearColor : [0.0, 0.0, 0.0, 1.0],
 			wireframe : false
 		});
 
@@ -246,7 +246,15 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 			this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true);
 
 			this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-			this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, src);
+
+			if(config.wrap === true) {
+				console.log('WRAP');
+				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.REPEAT);
+				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.REPEAT);
+			}
+
+			this.gl.texImage2D(this.gl.TEXTURE_2D, 0, config.format ? config.format : this.gl.RGBA, config.format ? config.format : this.gl.RGBA, this.gl.UNSIGNED_BYTE, src);
+
 
 			//this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
 			//this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR_MIPMAP_NEAREST);
@@ -298,7 +306,34 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 					this.gl.drawElements(this.gl.TRIANGLE_STRIP, iBuffer.numItems, this.gl.UNSIGNED_SHORT, 0);
 				else if(type == Ultra.Web3DEngine.TRIANGLES)
 					this.gl.drawElements(this.gl.TRIANGLES, iBuffer.numItems, this.gl.UNSIGNED_SHORT, 0);
+				else if(type == Ultra.Web3DEngine.POINTS)
+					this.gl.drawElements(this.gl.POINTS, iBuffer.numItems, this.gl.UNSIGNED_SHORT, 0);
 			}
+		},
+		draw: function(size, shader, type) {
+			if(!this.gl) return null;
+
+			if(!this.setShader(shader))
+				return;
+
+			for(var key in shader.params) {
+				if(_.isUndefined(shader.params[key].data) || !shader.params[key].dirty || !shader.params[key].webgl || shader.params[key].webgl.loc == -1) continue;
+
+				shader.params[key].dirty = false;
+				if(shader.params[key].webgl.type == 'attr') {
+					this.gl.enableVertexAttribArray(shader.params[key].webgl.loc);
+					this.gl.bindBuffer(this.gl.ARRAY_BUFFER, shader.params[key].data);
+					this.gl.vertexAttribPointer(shader.params[key].webgl.loc, shader.params[key].data.itemSize, this.gl.FLOAT, false, 0, 0);
+				} else if(shader.params[key].webgl.type == 'uniform') {
+					if(!ShaderUtils['set' + shader.params[key].type])
+						continue;
+
+					ShaderUtils['set' + shader.params[key].type](this.gl, shader.params[key]);
+				}
+			}
+
+			this.gl.drawArrays(this.gl.POINTS, 0, size);
+			
 		},
 		getContext: function() {
 			if(!this.gl) return null;

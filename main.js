@@ -28,6 +28,9 @@ requirejs(['ultra/ultra', 'ultra_engine/mainengine', 'ultra_engine/camera/base_c
     
     var terrain = null;
 
+    var lightDir = vec3.create([-0.25, -0.25, -1.0]);
+    var lightRot = mat4.create();
+
 	var onTick = function(e, engine, device) {
 		//Do some cooool stuff ???
 		mat4.perspective(45, device.gl.viewportWidth / device.gl.viewportHeight, 0.1, 1000.0, pMatrix);
@@ -35,7 +38,21 @@ requirejs(['ultra/ultra', 'ultra_engine/mainengine', 'ultra_engine/camera/base_c
 		camera.pMatrix = pMatrix;
 		terrain.render(device, camera);
 
+		var shader = engine.shaderManager.getShaderProgram(['basic_vs', 'basic_ps']);
+
+		mat4.identity(lightRot);
+		mat4.rotate(lightRot, degToRad(0.5), [10, 0, 0]);
+		lightDir = mat4.multiplyVec3(lightRot, lightDir);
+
+		if(shader)
+			shader.setParam('lightDir', lightDir);
+
+		mesh.setShaders(['basic_vs', 'basic_ps']);
 		mesh.render(device, camera);
+
+		//mesh.setShaders(['basic_debug_normals_vs', 'basic_debug_ps']);
+
+		//mesh.renderDebug(device, camera);
 	};
 
 
@@ -48,6 +65,8 @@ requirejs(['ultra/ultra', 'ultra_engine/mainengine', 'ultra_engine/camera/base_c
 			}
 		}
 	});
+
+	var heightMapCtx;
 
 	engine.on('init', function(e, device) {
 		/*
@@ -69,7 +88,7 @@ requirejs(['ultra/ultra', 'ultra_engine/mainengine', 'ultra_engine/camera/base_c
 
 		mesh.setPos(55, 8.6, -20);
 		mesh.setRot(90, 0, 0);
-		mesh.setScale(30, 30, 30);
+		//mesh.setScale(30, 30, 30);
 		
 		//mesh.createFromFile('/engine/model?name=Altair Model/altair.3ds');
 
@@ -95,7 +114,7 @@ requirejs(['ultra/ultra', 'ultra_engine/mainengine', 'ultra_engine/camera/base_c
 			mesh.textures['wood_floor'] = tex.data;
 		});
 
-		tex2 = texMg.getTexture('/assets/models/Inn/Plaster.jpg', device, {});
+		tex2 = texMg.getTexture('/assets/models/Inn/Plaster.jpg', device, { wrap : true, format : device.gl.RGB});
 		tex2.on('load', function(e, tex) {
 			mesh.textures['plaster'] = tex.data;
 		});
@@ -130,6 +149,20 @@ requirejs(['ultra/ultra', 'ultra_engine/mainengine', 'ultra_engine/camera/base_c
 			mesh.textures['door'] = tex.data;
 		});
 
+		var heightMap = engine.fileManager.loadFile('/assets/images/heightmap.png');
+		heightMap.on('load', function(e, file) {
+			var img = new Image();
+			img.onload = function(e) {
+				heightMapCtx = document.createElement("canvas");
+				heightMapCtx.width = img.width;
+				heightMapCtx.height = img.height;
+				heightMapCtx = heightMapCtx.getContext("2d");
+				heightMapCtx.drawImage(img, 0, 0, img.width, img.height);
+			};
+
+			img.src = window.URL.createObjectURL(file.data);
+		});
+
 		terrain = new Ultra.Web3DEngine.Terrain(engine);
 		terrain.buildPlanes(device);
 		terrain.addPatch('/assets/images/heightmap.png', device);
@@ -141,20 +174,27 @@ requirejs(['ultra/ultra', 'ultra_engine/mainengine', 'ultra_engine/camera/base_c
 
 	var im = new Ultra.InputManager({ target : document.getElementById("glcanvas") });
 
+	var freefly = false;
 	camera = new Ultra.Web3DEngine.BaseCamera(im);
-	camera.setPos([0.0, 0.0, 25.0]);
+	camera.setPos([25.0, 25.0, 10.18]);
+	engine.on('tick', function() {
+		if(!heightMapCtx || freefly)
+			return;
+
+		var pos = camera.pos;
+
+		var data = heightMapCtx.getImageData(pos[0] / 127 * 1024, 1024 - pos[1] / 127 * 1024, 3, 3).data;
+
+		$('#posx').val(pos[0] / 127 * 1024);
+		$('#posy').val(pos[1] / 127 * 1024);
+		$('#posz').val(data[0] / 255 * 25 + 2);
+		camera.setPos([pos[0], pos[1], data[0] / 255 * 25 + 1]);
+	});
 	engine.on('tick', camera.tick.bind(camera));
 	engine.on('tick', onTick);
+
 	engine.init();
 	im.enable();
-	
-	$('#mesh_x, #mesh_y, #mesh_z').change(function() {
-		mesh.setPos(parseFloat($('#mesh_x').val()), parseFloat($('#mesh_y').val()), parseFloat($('#mesh_z').val()));
-	});
-
-	$('#mesh').change(function() {
-		mesh.createFromFile('/engine/model?name=' + $('#mesh').val());
-	});
 
 	$('#wireframe').change(function() {
 		if($('#wireframe').is(':checked'))
@@ -163,10 +203,15 @@ requirejs(['ultra/ultra', 'ultra_engine/mainengine', 'ultra_engine/camera/base_c
 			engine.getRenderDevice('WebGL').setConfig('wireframe', false);
 	});
 
-	$('#FPS').change(function() {
-		if($('#FPS').is(':checked'))
-			engine.setConfig('renderFPS', true);
-		else
-			engine.setConfig('renderFPS', false);
+	engine.setConfig('renderFPS', $('#FPS')[0]);
+
+	$('#freefly').change(function() {
+		if($('#freefly').is(':checked')) {
+			freefly = true;
+			camera.speed = 200;
+		} else {
+			freefly = false;
+			camera.speed = 50;
+		}
 	});
 });
