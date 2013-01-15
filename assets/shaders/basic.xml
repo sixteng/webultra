@@ -70,8 +70,8 @@
 		        gl_Position = uPMatrix * uMVMatrix * uMMatrix * vec4(aVertexPosition, 1.0);
 		        vTextureCoord = aTextureCoord;
 
-		        vec3 transformedNormal = uNMatrix * aVertexNormal;
-		        float directionalLightWeighting = max(dot(transformedNormal, lightDir), 0.0);
+		        vec3 transformedNormal = normalize(uNMatrix * aVertexNormal);
+		        float directionalLightWeighting = max(dot(transformedNormal, normalize(lightDir)), 0.0);
 		        vLightWeighting = vec3(0.1, 0.1, 0.1) + vec3(0.8, 0.8, 0.8) * directionalLightWeighting;
 		    }
 		</src>

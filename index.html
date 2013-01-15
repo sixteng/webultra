@@ -5,13 +5,54 @@
 		<title>Ultra Web Engine</title>
 		<META HTTP-EQUIV="Pragma" CONTENT="no-cache">
 		<META HTTP-EQUIV="Expires" CONTENT="-1">
+		<style>
+			#console {
+			    background:#000;
+			    width:100%;
+			    position:absolute;
+			    display: none;
+			    opacity: 0.5;
+			    z-index:999;
+			    color:#fff;
+			    text-align:left;
+			    overflow: hidden;
+			    font-size:9pt;
+			}
+			#console .window {
+			    margin:0px auto 0px auto;
+			    background:#000;
+			    padding:8px;
+			    color:#fff;
+			    
+			    font-family:courier;
+			    overflow-y:scroll;
+			}
+
+			#console .window p {
+				margin: 0;
+			}
+
+			#console .input {
+				padding-left: 8px;
+			}
+
+			#console .input input {
+				//margin:0px auto 0px auto;
+				
+				width: 90%;
+				border: 0;
+				background: transparent;
+				color:#fff;
+			}
+		</style>
+		<script type="text/javascript" src="http://code.jquery.com/jquery-1.8.3.min.js"></script>
 		<script>
 			window.ULTRA_WEB_ENGINE_BASE_PATH = '';
 		</script>
-		<script type="text/javascript" src="http://code.jquery.com/jquery-1.8.3.min.js"></script>
-		<script type="text/javascript" src="engine/libs/glMatrix-0.9.5.min.js" ></script>
-		<script type="text/javascript" src="engine/libs/lua.parser.min.js" ></script>
-		<script data-main="main" src="engine/libs/require.min.js"></script>
+		
+		<script type="text/javascript" src="ultra/web3dengine/libs/gl-matrix-min.js" ></script>
+		<script type="text/javascript" src="ultra/web3dengine/libs/lua.parser.min.js" ></script>
+		<script data-main="main" src="ultra/web3dengine/libs/require.min.js"></script>
 	</head>
 
 	<body>
