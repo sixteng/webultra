@@ -5,14 +5,14 @@ define([
 	'ultra_engine/input_manager',
 	'ultra_engine/resources/manager',
 	'ultra_engine/shader_manager',
-	'ultra_engine/resources/texture'
+	'ultra_engine/resources/texture',
+	'ultra_engine/rendersystem/rendertarget'
 ], function(Ultra, _, Jvent) {
 	'use strict';
 
 	if(_.isUndefined(Ultra.Web3DEngine))
 		Ultra.Web3DEngine = {};
 
-	Ultra.Web3DEngine.RenderSystem = {};
 	Ultra.Web3DEngine.RenderSystem.Devices = {};
 
 	window.requestAnimFrame = (function() {
@@ -103,14 +103,8 @@ define([
 
 			this.emit('init', this.renderDevices[key]);
 		},
-		createRenderTarget: function(name, target, config) {
-			var renderTarget = this.cache.get('rendertargets', name);
-			if(renderTarget)
-				return renderTarget;
-
-			renderTarget = new Ultra.Web3DEngine.RenderSystem.RenderTarget(target, config);
-			this.cache.set('rendertargets', name, renderTarget);
-
+		createRenderTarget: function(width, height, config) {
+			var renderTarget = new Ultra.Web3DEngine.RenderSystem.RenderTarget(width, height, config);
 			return renderTarget;
 		},
 		getRenderDevice: function(key) {
@@ -124,7 +118,7 @@ define([
             if(elapsed < 0) elapsed = 0;
 			
 			for(var key in this.renderDevices) {
-				this.renderDevices[key].clear();
+				this.renderDevices[key].clear(true, true, true);
 				this.emit('tick', this, this.renderDevices[key], elapsed);
 			}
 

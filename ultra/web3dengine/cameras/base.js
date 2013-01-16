@@ -55,6 +55,37 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra_engi
 		}
     });
 
+    Ultra.Web3DEngine.Cameras.OrthographicCamera = function( left, right, top, bottom, near, far ) {
+		Ultra.Web3DEngine.Cameras.Base.call(this);
+
+		this.left = left;
+		this.right = right;
+		this.top = top;
+		this.bottom = bottom;
+		this.near = near;
+		this.far = far;
+
+		this.updateProjectionMatrix();
+    };
+
+    _.extend(Ultra.Web3DEngine.Cameras.OrthographicCamera.prototype, Ultra.Web3DEngine.Cameras.Base.prototype, {
+		updateProjectionMatrix: function() {
+			Ultra.Math.Matrix4.ortho(this.projMatrix, this.left, this.right, this.bottom, this.top, this.near, this.far);
+		}
+		/*,
+		updateMatrix: function() {
+			Ultra.Math.Matrix4.identity(this.matrix);
+			Ultra.Math.Matrix4.rotateX(this.matrix, this.matrix, this.rotation[0]);
+			Ultra.Math.Matrix4.rotateY(this.matrix, this.matrix, this.rotation[1]);
+			Ultra.Math.Matrix4.rotateZ(this.matrix, this.matrix, this.rotation[2]);
+			Ultra.Math.Matrix4.translate(this.matrix, this.matrix, this.position);
+			//Ultra.Math.Matrix4.scale(this.matrix, this.scale);
+			
+			this.matrixDirty = false;
+		}
+		*/
+    });
+
     Ultra.Web3DEngine.Cameras.FirstPersonCamera = function(input_handler, fov, aspect, near, far) {
 		var self = this;
 
@@ -63,6 +94,8 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra_engi
 		this.input_handler = input_handler;
 		this.movementSpeed = 10.0;
 		this.rotationSpeed = 0.005;
+
+		if(input_handler == null) return;
 
 		this.input_handler.on('mousedown', 0, function(e) {
 			self.moving = true;
@@ -83,7 +116,7 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra_engi
 				self.lastY = e.pageY;
 
 				self.rotateX(yDelta * 0.005);
-				self.rotateZ(xDelta * 0.005);
+				self.rotateY(xDelta * 0.005);
 			}
 		});
 	};

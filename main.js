@@ -16,11 +16,10 @@ requirejs([
 	'ultra_engine/resources/texture',
 	'ultra_engine/objects/mesh',
 	'ultra_engine/objects/terrain_mesh',
+	'ultra_engine/rendersystem/renderer/deffered',
 	'ultra/common/console',
-	'ultra/common/math'],
+	'ultra/common/math',],
 function (Ultra) {
-	var shader;
-	var texture;
 	var heightmap;
 
 	var mask;
@@ -29,19 +28,20 @@ function (Ultra) {
     var pMatrix = mat4.create();
 
     var mesh;
+    var mesh2;
     var camera;
     
     var terrain = null;
 
-    var lightDir = vec3.fromValues(0, 0, 100);
+    var lightDir = vec3.fromValues(0, 0.25, 0.75);
     var lightRot = mat4.create();
 
 	var onTick = function(e, engine, device, elapsed) {
 		//Do some cooool stuff ???
-		var shader = engine.shaderManager.getShaderProgram(['basic_vs', 'basic_ps']);
+		var shader = engine.shaderManager.getShaderProgram(['basic_light_vs', 'basic_light_ps']);
 
 		mat4.identity(lightRot);
-		mat4.rotate(lightRot, lightRot, Ultra.Math.degToRad(0.5), [10, 0, 0]);
+		mat4.rotate(lightRot, lightRot, Ultra.Math.degToRad(0.5), [0, 128, 0]);
 
 		lightDir = Ultra.Math.Vector3.transformMat4(lightDir, lightDir, lightRot);
 
@@ -52,27 +52,28 @@ function (Ultra) {
 		if(shader)
 			shader.setParam('lightDir', lightDir);
 
-		terrain.render(device, camera);
+		deffered.render(device, terrain, camera);
 
-		mesh.setShaders(['basic_vs', 'basic_ps']);
-		mesh.render(device, camera);
+		//terrain.render(device, camera);
+		//terrain.renderDebug(device, camera);
 
-		//mesh.setShaders(['basic_debug_normals_vs', 'basic_debug_ps']);
-
-		//mesh.renderDebug(device, camera);
+		//mesh.render(device, camera);
+		//mesh2.render(device, camera);
 	};
-
+	var canvas = document.getElementById("glcanvas");
 	var engine = new Ultra.Web3DEngine.Engine({
 		devices: {
 			//TODO: Fix support for multiple active devices
 			'WebGL' : {
 				device: 'WebGL',
-				target : document.getElementById("glcanvas")
+				target : canvas
 			}
 		}
 	});
 
 	var heightMapCtx;
+
+	var deffered = new Ultra.Web3DEngine.RenderSystem.Renderer.Deffered(engine);
 
 	engine.on('init', function(e, device) {
 		terrain = new Ultra.Web3DEngine.Terrain(engine);
@@ -84,35 +85,47 @@ function (Ultra) {
 	});
 
 	engine.shaderManager.loadFromFile('/assets/shaders/basic.xml');
+	engine.shaderManager.loadFromFile('/assets/shaders/deffered.xml');
 
 	mesh = new Ultra.Web3DEngine.Objects.Mesh(engine);
 	mesh.createFromFile('/engine/model?name=Inn/Inn.3ds');
-	mesh.setShaders(['basic_vs', 'basic_ps']);
+	mesh.setShaders(['basic_light_vs', 'basic_light_ps']);
 
-	mesh.setRotation([Ultra.Math.degToRad(90), 0, 0]);
-	mesh.setPosition([55, 20, 6.5]);
+	//mesh.setRotation([Ultra.Math.degToRad(90), 0, 0]);
+	mesh.setPosition([50, 6.5, -20]);
+
+	mesh2 = new Ultra.Web3DEngine.Objects.Mesh(engine);
+	mesh2.createFromFile('/engine/model?name=cube_with_diffuse_texture.3DS');
+
+	mesh2.setShaders(['basic_vs', 'basic_ps']);
+	mesh2.setRotation([Ultra.Math.degToRad(90), 0, 0]);
+	mesh2.setPosition([20, 10, 50]);
 	
 	//TODO: Move to material loading instead ....
 	
-	mesh.textures['roof'] = engine.textureManager.getTexture('/assets/models/Inn/Roof.jpg', {});
-	mesh.textures['stone_wall'] = engine.textureManager.getTexture('/assets/models/Inn/Stone Wall2.jpg', {});
-	mesh.textures['stone'] = engine.textureManager.getTexture('/assets/models/Inn/Stone Wall-new.png', {});
-	mesh.textures['wood_floor'] = engine.textureManager.getTexture('/assets/models/Inn/Wood floor 2.png', {});
-	mesh.textures['plaster'] = engine.textureManager.getTexture('/assets/models/Inn/Plaster.jpg', { wrap : true, format : Ultra.Resources.Texture.Formats.RGB});
-	mesh.textures['sign'] = engine.textureManager.getTexture('/assets/models/Inn/InnSign.jpg', {});
-	mesh.textures['sign2'] = engine.textureManager.getTexture('/assets/models/Inn/InnSign2.jpg', {});
-	mesh.textures['window2'] = engine.textureManager.getTexture('/assets/models/Inn/Window2.jpg', {});
-	mesh.textures['window'] = engine.textureManager.getTexture('/assets/models/Inn/Window.jpg', {});
-	mesh.textures['metal_rusted'] = engine.textureManager.getTexture('/assets/models/Inn/Rusted Metal.png', {});
-	mesh.textures['door'] = engine.textureManager.getTexture('/assets/models/Inn/Door3.jpg', {});
+	mesh.textures['roof'] = engine.textureManager.getTexture('/assets/models/Inn/Roof.jpg');
+	mesh.textures['stone_wall'] = engine.textureManager.getTexture('/assets/models/Inn/Stone Wall2.jpg');
+	mesh.textures['stone'] = engine.textureManager.getTexture('/assets/models/Inn/Stone Wall-new.png');
+	mesh.textures['wood_floor'] = engine.textureManager.getTexture('/assets/models/Inn/Wood floor 2.png');
+	mesh.textures['plaster'] = engine.textureManager.getTexture('/assets/models/Inn/Plaster.jpg', { format : Ultra.Consts.RGBFormat });
+	mesh.textures['sign'] = engine.textureManager.getTexture('/assets/models/Inn/InnSign.jpg');
+	mesh.textures['sign2'] = engine.textureManager.getTexture('/assets/models/Inn/InnSign2.jpg');
+	mesh.textures['window2'] = engine.textureManager.getTexture('/assets/models/Inn/Window2.jpg');
+	mesh.textures['window'] = engine.textureManager.getTexture('/assets/models/Inn/Window.jpg');
+	mesh.textures['metal_rusted'] = engine.textureManager.getTexture('/assets/models/Inn/Rusted Metal.png');
+	mesh.textures['door'] = engine.textureManager.getTexture('/assets/models/Inn/Door3.jpg');
 
 	var im = new Ultra.InputManager({ target : document.getElementById("glcanvas") });
 
 	var freefly = false;
 	camera = new Ultra.Web3DEngine.Cameras.FirstPersonCamera(im, 45, 800 / 600, 0.1, 1000.0);
 	
-	camera.setRotation([-Ultra.Math.degToRad(90), 0.0, 0.0]);
-	camera.setPosition([0, 0, 0]);
+	//camera.setRotation([-Ultra.Math.degToRad(90), 0.0, 0.0]);
+	camera.setPosition([0, -40, 0]);
+
+	camera2 = new Ultra.Web3DEngine.Cameras.FirstPersonCamera(null, 45, 512 / 512, 0.1, 1000.0);
+	camera2.setRotation([0.0, 0.0, 0.0]);
+	camera2.setPosition([0, 0, 0]);
 
 	/*
 	var heightMap = engine.fileManager.loadFile('/assets/images/heightmap.png');

@@ -76,6 +76,11 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra/comm
 			for(var i = 0; i < this.patches.length; i += 1) {
 				this.patches[i].render(device, camera, this.planes[0], 128);
 			}
+		},
+		renderDebug: function(device, camera) {
+			for(var i = 0; i < this.patches.length; i += 1) {
+				this.patches[i].renderDebug(device, camera, this.planes[0], 128);
+			}
 		}
     });
 
@@ -102,9 +107,9 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra/comm
 		createFromFile: function(path, device) {
 			var self = this;
 
-			self.heightMap = this.engine.textureManager.getTexture('/assets/images/heightmap.png', device, {});
-			self.combined = this.engine.textureManager.getTexture('/assets/images/combined.png', device, {});
-			self.mask = this.engine.textureManager.getTexture('/assets/images/mask.png', device, {});
+			self.heightMap = this.engine.textureManager.getTexture('/assets/images/heightmap.png', {});
+			self.combined = this.engine.textureManager.getTexture('/assets/images/combined.png', {});
+			self.mask = this.engine.textureManager.getTexture('/assets/images/mask.png', {});
 		},
 		destroy: function(device) {
 
@@ -127,6 +132,32 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra/comm
 			shader.setParam('aVertexPosition', plane.vBuffer);
 
 			device.drawIndex(plane.iBuffer, shader, Ultra.Web3DEngine.TRIANGLE_STRIP);
+		},
+		renderDebug: function(device, camera, plane, size) {
+			var shader = this.engine.shaderManager.getShaderProgram(['basic_terrain_debug_vs', 'basic_debug_ps']);
+			if(!shader)
+				return;
+
+			shader.setParam('uPMatrix', camera.getProjectionMatrix());
+			shader.setParam('uMVMatrix', camera.getMatrix());
+
+			shader.setParam('planePos', [this.pos[0], this.pos[1]]);
+			shader.setParam('planeSize', [size, size]);
+
+			shader.setParam('uSampler', this.heightMap);
+
+			shader.setParam('aVertexPosition', plane.vBuffer);
+
+			if(!this.nScale)
+				this.nScale = 0.0;
+
+			this.nScale += 0.1;
+			if(this.nScale > 1.0)
+				this.nScale = 0.0;
+
+			shader.setParam('nScale', this.nScale);
+
+			device.drawIndex(plane.iBuffer, shader, Ultra.Web3DEngine.POINTS);
 		},
 		setShaders: function(shaders) {
 

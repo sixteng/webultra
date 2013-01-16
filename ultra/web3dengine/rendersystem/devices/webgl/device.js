@@ -71,6 +71,7 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 				this.config.clearColor[i] = 0.0;
 		}
 
+		this.gl.getExtension('OES_texture_float');
 		this.gl.clearColor(this.config.clearColor[0], this.config.clearColor[1], this.config.clearColor[2], this.config.clearColor[3]);
 		this.gl.enable(this.gl.DEPTH_TEST);
 		this.uid = _.uniqueId('webgl');
@@ -79,10 +80,14 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 	};
 
 	_.extend(Ultra.Web3DEngine.RenderSystem.Devices.WebGL.Device.prototype, Jvent.prototype, {
-		clear: function() {
+		clear: function(color, depth, stencil) {
 			if(!this.gl) return;
 
-			this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+			var clearBit = clearBit | (color !== false ? this.gl.COLOR_BUFFER_BIT : 0);
+			clearBit = clearBit | (depth !== false ? this.gl.DEPTH_BUFFER_BIT : 0);
+			clearBit = clearBit | (stencil !== false ? this.gl.STENCIL_BUFFER_BIT : 0);
+
+			this.gl.clear(clearBit);
 		},
 		onResize: function() {
 			if(!this.gl) return;
@@ -234,48 +239,94 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 
 			return true;
 		},
+		setTextureParams: function(config, isPowerTwo) {
+			if(isPowerTwo) {
+				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.convEngineFormat(config.wrap_s));
+				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.convEngineFormat(config.wrap_t));
+
+				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.convEngineFormat(config.magFilter));
+				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.convEngineFormat(config.minFilter));
+			
+			} else {
+				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+
+				var magFilter = this.gl.LINEAR;
+				if(config.magFilter == Ultra.Consts.NearestFilter || config.magFilter == Ultra.Consts.NearestMipMapNearestFilter || config.magFilter == Ultra.Consts.NearestMipMapLinearFilter)
+					magFilter = this.gl.NEAREST;
+
+				var minFilter = this.gl.LINEAR;
+				if(config.minFilter == Ultra.Consts.NearestFilter || config.minFilter == Ultra.Consts.NearestMipMapNearestFilter || config.minFilter == Ultra.Consts.NearestMipMapLinearFilter)
+					minFilter = this.gl.NEAREST;
+
+				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, magFilter);
+				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, minFilter);
+			}
+
+			if(isPowerTwo && config.mipmap !== false)
+				this.gl.generateMipmap(this.gl.TEXTURE_2D);
+		},
 		createTexture: function(src, config) {
 			if(!this.gl) return null;
 
-			if (!this.isPowerOfTwo(src.width) || !this.isPowerOfTwo(src.height)) {
-				var canvas = document.createElement("canvas");
-				canvas.width = this.nextHighestPowerOfTwo(src.width);
-				canvas.height = this.nextHighestPowerOfTwo(src.height);
-				var ctx = canvas.getContext("2d");
-				ctx.drawImage(src, 0, 0, src.width, src.height);
-				src = canvas;
-			}
+			//if (!this.isPowerOfTwo(src.width) || !this.isPowerOfTwo(src.height)) {
+			//	var canvas = document.createElement("canvas");
+			//	canvas.width = this.nextHighestPowerOfTwo(src.width);
+			//	canvas.height = this.nextHighestPowerOfTwo(src.height);
+			//	var ctx = canvas.getContext("2d");
+			//	ctx.drawImage(src, 0, 0, src.width, src.height);
+				//src = canvas;
+			//}
+
+			var isPowerTwo = this.isPowerOfTwo(src.width) && this.isPowerOfTwo(src.height);
 
 			var texture = this.gl.createTexture();
 			this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true);
 
 			this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
 
-			if(config.wrap === true) {
-				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.REPEAT);
-				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.REPEAT);
-			}
+			this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.convEngineFormat(config.format), this.convEngineFormat(config.format), this.convEngineFormat(config.type), src);
 
-			this.gl.texImage2D(this.gl.TEXTURE_2D, 0, config.format ? config.format : this.gl.RGBA, config.format ? this.convTextureFormat(config.format) : this.gl.RGBA, config.type ? config.type : this.gl.UNSIGNED_BYTE, src);
-
-
-			//this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
-			//this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR_MIPMAP_NEAREST);
-			
-			this.gl.generateMipmap(this.gl.TEXTURE_2D);
+			this.setTextureParams(config, isPowerTwo);
 
 			this.gl.bindTexture(this.gl.TEXTURE_2D, null);
 
 			return texture;
 		},
-		convTextureFormat: function(format) {
+		convEngineFormat: function(format) {
 			switch(format) {
-				case Ultra.Resources.Texture.Formats.RGB:
+				//Texture Format
+				case Ultra.Consts.RGBFormat:
 					return this.gl.RGB;
-				case Ultra.Resources.Texture.Formats.RGBA:
+				case Ultra.Consts.RGBAFormat:
 					return this.gl.RGBA;
+				//Texture Type
+				case Ultra.Consts.FloatType:
+					return this.gl.FLOAT;
+				case Ultra.Consts.UByteType:
+					return this.gl.UNSIGNED_BYTE;
+				//Texture Filters
+				case Ultra.Consts.NearestFilter:
+					return this.gl.NEAREST;
+				case Ultra.Consts.NearestMipMapNearestFilter:
+					return this.gl.NEAREST_MIPMAP_NEAREST;
+				case Ultra.Consts.NearestMipMapLinearFilter:
+					return this.gl.NEAREST_MIPMAP_LINEAR;
+				case Ultra.Consts.LinearFilter:
+					return this.gl.LINEAR;
+				case Ultra.Consts.LinearMipMapNearestFilter:
+					return this.gl.LINEAR_MIPMAP_NEAREST;
+				case Ultra.Consts.LinearMipMapLinearFilter:
+					return this.gl.LINEAR_MIPMAP_LINEAR;
+				//Texture Wrap
+				case Ultra.Consts.RepeatWrap:
+					return this.gl.REPEAT;
+				case Ultra.Consts.ClampWrap:
+					return this.gl.CLAMP_TO_EDGE;
+				case Ultra.Consts.MirroredWrap:
+					return this.gl.MIRRORED_REPEAT;
 				default:
-					return this.gl.RGBA;
+					return 0;
 			}
 		},
 		createRenderTarget: function(width, height, config) {
@@ -286,28 +337,72 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 			frameBuffer.height = height;
 
 			var texture = this.gl.createTexture();
+			var isPowerTwo = this.isPowerOfTwo(width) && this.isPowerOfTwo(height);
 			this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-			this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
-			this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR_MIPMAP_NEAREST);
-			this.gl.generateMipmap(this.gl.TEXTURE_2D);
 
-			this.gl.texImage2D(this.gl.TEXTURE_2D, 0, config.format ? config.format : this.gl.RGBA, frameBuffer.width, frameBuffer.height, 0, config.format ? config.format : this.gl.RGBA, config.type ? config.type : this.gl.UNSIGNED_BYTE, null);
+			this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.convEngineFormat(config.format), frameBuffer.width, frameBuffer.height, 0, this.convEngineFormat(config.format), this.convEngineFormat(config.type), null);
 
-			var renderbuffer = this.gl.createRenderbuffer();
-			this.gl.bindRenderbuffer(this.gl.RENDERBUFFER, renderbuffer);
-			this.gl.renderbufferStorage(this.gl.RENDERBUFFER, this.gl.DEPTH_COMPONENT16, frameBuffer.width, frameBuffer.height);
+			this.setTextureParams(config, isPowerTwo);
 
+			var renderbuffer;
+
+			if(config.srcDepthBuffer) {
+				renderbuffer = config.srcDepthBuffer.devices[this.getName()].renderbuffer;
+			} else {
+				renderbuffer = this.gl.createRenderbuffer();
+				this.gl.bindRenderbuffer(this.gl.RENDERBUFFER, renderbuffer);
+			}
+
+			if(config.depthBuffer && config.stencilBuffer) {
+				if(!config.srcDepthBuffer)
+					this.gl.renderbufferStorage(this.gl.RENDERBUFFER, this.gl.DEPTH_STENCIL, frameBuffer.width, frameBuffer.height);
+
+				this.gl.framebufferRenderbuffer(this.gl.FRAMEBUFFER, this.gl.DEPTH_STENCIL_ATTACHMENT, this.gl.RENDERBUFFER, renderbuffer);
+			} else {
+				if(!config.srcDepthBuffer)
+					this.gl.renderbufferStorage(this.gl.RENDERBUFFER, this.gl.DEPTH_COMPONENT16, frameBuffer.width, frameBuffer.height);
+				
+				this.gl.framebufferRenderbuffer(this.gl.FRAMEBUFFER, this.gl.DEPTH_ATTACHMENT, this.gl.RENDERBUFFER, renderbuffer);
+			}
+			
 			this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, texture, 0);
-			this.gl.framebufferRenderbuffer(this.gl.FRAMEBUFFER, this.gl.DEPTH_ATTACHMENT, this.gl.RENDERBUFFER, renderbuffer);
 
 			this.gl.bindTexture(this.gl.TEXTURE_2D, null);
 			this.gl.bindRenderbuffer(this.gl.RENDERBUFFER, null);
 			this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
 
 			return {
+				isPowerTwo : isPowerTwo,
 				frameBuffer : frameBuffer,
-				texture : texture
+				texture : texture,
+				renderbuffer : renderbuffer
 			};
+		},
+		setRenderTarget: function(target, clear_color, clear_depth, clear_stencil) {
+			if(target === null) {
+				if(this.currentRenderTarget && this.currentRenderTarget.data[this.getName()].texture && this.currentRenderTarget.data[this.getName()].isPowerTwo && this.currentRenderTarget.config.mipmap !== false) {
+					this.gl.bindTexture( this.gl.TEXTURE_2D, this.currentRenderTarget.data[this.getName()].texture );
+					this.gl.generateMipmap( this.gl.TEXTURE_2D );
+					this.gl.bindTexture( this.gl.TEXTURE_2D, null );
+				}
+
+				this.currentRenderTarget = null;
+				this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+				this.clear(clear_color, clear_depth, clear_stencil);
+				this.gl.viewport(0, 0, this.gl.viewportWidth, this.gl.viewportHeight);
+				return;
+			}
+
+			if(!target.devices[this.getName()]) {
+				target.devices[this.getName()] = this.createRenderTarget(target.width, target.height, target.config);
+				target.data[this.getName()] = target.devices[this.getName()].texture;
+			}
+
+			this.currentRenderTarget = target;
+
+			this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, target.devices[this.getName()].frameBuffer);
+			this.gl.viewport(0, 0, this.gl.viewportWidth, this.gl.viewportHeight);
+			this.clear(clear_color, clear_depth, clear_stencil);
 		},
 		isPowerOfTwo : function(x) {
 			return (x & (x - 1)) === 0;

@@ -1,5 +1,13 @@
 define(['ultra/ultra', 'underscore', 'Jvent', 'ultra/common/indexed_db', 'ultra_engine/resources/manager'], function(Ultra, _, Jvent) {
 
+	Ultra.Consts = {
+		index : 0,
+		add: function(key) {
+			Ultra.Consts[key] = this.index;
+			this.index++;
+		}
+	};
+
 	Ultra.Resources.Texture = function(config) {
 		this.id = _.uniqueId('file');
 		this.data = {};
@@ -7,16 +15,37 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra/common/indexed_db', 'ultra_
 		//TODO: Maybe add default settings to texture ???
 		//TODO: Implement whole config chain, MAG_FILTER, FLIP, etc
 
+		if(!config)
+			config = {};
+
+		_.defaults(config, {
+			format : Ultra.Consts.RGBAFormat,
+			type : Ultra.Consts.UByteType,
+			magFilter : Ultra.Consts.LinearFilter,
+			minFilter : Ultra.Consts.LinearMipMapLinearFilter,
+			wrap_s : Ultra.Consts.RepeatWrap,
+			wrap_t : Ultra.Consts.RepeatWrap
+		});
+
 		this.config = config;
 		this.collection = {};
 	};
 
 	_.extend(Ultra.Resources.Texture.prototype, Jvent.prototype);
 
-	Ultra.Resources.Texture.Formats = {
-		RGB : 0,
-		RGBA : 1
-	};
+	Ultra.Consts.add('RGBFormat');
+	Ultra.Consts.add('RGBAFormat');
+	Ultra.Consts.add('FloatType');
+	Ultra.Consts.add('UByteType');
+	Ultra.Consts.add('NearestFilter');
+	Ultra.Consts.add('NearestMipMapNearestFilter');
+	Ultra.Consts.add('NearestMipMapLinearFilter');
+	Ultra.Consts.add('LinearFilter');
+	Ultra.Consts.add('LinearMipMapNearestFilter');
+	Ultra.Consts.add('LinearMipMapLinearFilter');
+	Ultra.Consts.add('RepeatWrap');
+	Ultra.Consts.add('ClampWrap');
+	Ultra.Consts.add('MirroredWrap');
 
 	Ultra.Resources.TextureManager = function(config) {
 		var self = this;
