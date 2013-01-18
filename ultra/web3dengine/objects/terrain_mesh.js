@@ -1,5 +1,5 @@
 /*global: mat4:false, mat3:false, vec3:false*/
-define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra/common/math'], function(Ultra, _, Jvent) {
+define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra/common/math', 'ultra_engine/objects/plane'], function(Ultra, _, Jvent) {
 	'use strict';
 
 	if(_.isUndefined(Ultra.Web3DEngine))
@@ -25,61 +25,19 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra/comm
 			this.cells = 127;
 			this.size = 128;
 
-			var tVert = this.buildPlanePositions(this.cells, this.size / (this.cells + 1), 0.0);
-			var iVert = this.buildPlaneIndices(this.cells);
-
-			this.planes.push({ vBuffer : device.createVertexBuffer(tVert, 3), iBuffer : device.createIndexBuffer(iVert)});
+			//var tVert = this.buildPlanePositions(this.cells, this.size / (this.cells + 1), 0.0);
+			//var iVert = this.buildPlaneIndices(this.cells);
+			this.planes.push(new Ultra.Web3DEngine.Objects.Plane(128, 128, 127));
+			//this.planes.push({ vBuffer : device.createVertexBuffer(tVert, 3), iBuffer : device.createIndexBuffer(iVert)});
 		},
-		buildPlanePositions: function( cells, scale, height ) {
-			//var halfGridSize = (gridSize - 1) * cellSize * 0.5;
-
-			var positions = [];
-			for (var y = 0; y < cells + 1; ++y) {
-				for (var x = 0; x < cells + 1; ++x) {
-					positions.push(x * scale);
-					positions.push(y * scale);
-					positions.push(height);
-				}
-			}
-			return positions;
-		},
-		buildPlaneIndices: function( cells ) {
-			var indices = [];
-			var count = cells + 1;
-			var odd = true;
-			var x;
-			for (var y = 0; y < cells; ++y) {
-				//if(y != 0)
-				//indices.push(indices[indices.length - 1]);
-
-				if(odd) {
-					for (x = 0; x < cells + 1; ++x) {
-						indices.push((y * count) + x);
-						indices.push(((y + 1) * count) + x);
-					}
-				} else {
-					for (x = 0; x < cells + 1; ++x) {
-						indices.push(((y + 1) * count) - (x + 1));
-						indices.push(((y + 1) * count) + (count - x - 1));
-					}
-				}
-
-
-				//if(y != (cells - 2))
-				//indices.push((y + 1) * cells + (cells - 1));
-
-				odd = !odd;
-			}
-			return indices;
-		},
-		render: function(device, camera) {
+		render: function(device, camera, shader) {
 			for(var i = 0; i < this.patches.length; i += 1) {
-				this.patches[i].render(device, camera, this.planes[0], 128);
+				this.patches[i].render(device, camera, shader, this.planes[0], 128);
 			}
 		},
-		renderDebug: function(device, camera) {
+		renderDebug: function(device, camera, shader) {
 			for(var i = 0; i < this.patches.length; i += 1) {
-				this.patches[i].renderDebug(device, camera, this.planes[0], 128);
+				this.patches[i].renderDebug(device, camera, shader, this.planes[0], 128);
 			}
 		}
     });
@@ -114,10 +72,13 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra/comm
 		destroy: function(device) {
 
 		},
-		render: function(device, camera, plane, size) {
-			var shader = this.engine.shaderManager.getShaderProgram(['basic_terrain_vs', 'basic_terrain_ps']);
-			if(!shader)
-				return;
+		render: function(device, camera, shader, plane, size) {
+			//var shader = this.engine.shaderManager.getShaderProgram(['basic_terrain_vs', 'basic_terrain_ps']);
+			if(!shader) {
+				shader = this.engine.shaderManager.getShaderProgram(['basic_terrain_vs', 'basic_terrain_ps']);
+				if(!shader)
+					return;
+			}
 
 			shader.setParam('uPMatrix', camera.getProjectionMatrix());
 			shader.setParam('uMVMatrix', camera.getMatrix());
@@ -129,35 +90,7 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra/comm
 			shader.setParam('mask', this.mask);
 			shader.setParam('combined', this.combined);
 
-			shader.setParam('aVertexPosition', plane.vBuffer);
-
-			device.drawIndex(plane.iBuffer, shader, Ultra.Web3DEngine.TRIANGLE_STRIP);
-		},
-		renderDebug: function(device, camera, plane, size) {
-			var shader = this.engine.shaderManager.getShaderProgram(['basic_terrain_debug_vs', 'basic_debug_ps']);
-			if(!shader)
-				return;
-
-			shader.setParam('uPMatrix', camera.getProjectionMatrix());
-			shader.setParam('uMVMatrix', camera.getMatrix());
-
-			shader.setParam('planePos', [this.pos[0], this.pos[1]]);
-			shader.setParam('planeSize', [size, size]);
-
-			shader.setParam('uSampler', this.heightMap);
-
-			shader.setParam('aVertexPosition', plane.vBuffer);
-
-			if(!this.nScale)
-				this.nScale = 0.0;
-
-			this.nScale += 0.1;
-			if(this.nScale > 1.0)
-				this.nScale = 0.0;
-
-			shader.setParam('nScale', this.nScale);
-
-			device.drawIndex(plane.iBuffer, shader, Ultra.Web3DEngine.POINTS);
+			plane.render(device, camera, shader);
 		},
 		setShaders: function(shaders) {
 

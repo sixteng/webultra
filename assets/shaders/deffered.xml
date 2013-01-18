@@ -1,4 +1,102 @@
 <shaders>
+	<shader name="deffered_normal_basic_vs" type="vertex">
+		<src target="webgl">
+			attribute vec3 aVertexPosition;
+		    attribute vec3 aVertexNormal;
+
+		    uniform mat4 uMVMatrix;
+		    uniform mat4 uMMatrix;
+		    uniform mat4 uPMatrix;
+		    uniform mat3 uNMatrix;
+
+		    varying vec4 pos;
+        	varying vec3 vNormal;
+
+		    void main(void) {
+		        pos = uPMatrix * uMVMatrix * uMMatrix * vec4(aVertexPosition, 1.0);
+		        vNormal = normalize(uNMatrix * aVertexNormal);
+
+		        gl_Position = pos;
+		    }
+		</src>
+		<params>
+			<param name="uMVMatrix" type="mat4" />
+			<param name="uMMatrix" type="mat4" />
+			<param name="uPMatrix" type="mat4" />
+			<param name="uNMatrix" type="mat3" />
+			<param name="aVertexNormal" type="float3" />
+			<param name="aVertexPosition" type="float3" />
+		</params>
+	</shader>
+	<shader name="deffered_normal_basic_ps" type="pixel">
+		<src target="webgl">
+			precision mediump float;
+
+		   	varying vec4 pos;
+        	varying vec3 vNormal;
+
+		    void main(void) {
+		    	vec3 normal = normalize( vNormal );
+
+        		gl_FragColor.xyz = normal * 0.5 + 0.5;
+        		gl_FragColor.w = pos.z / pos.w;
+		    }
+		</src>
+		<params>
+		</params>
+	</shader>
+	<shader name="deffered_color_basic_vs" type="vertex">
+		<src target="webgl">
+			attribute vec3 aVertexPosition;
+		    attribute vec2 aTextureCoord;
+
+		    uniform mat4 uMVMatrix;
+		    uniform mat4 uMMatrix;
+		    uniform mat4 uPMatrix;
+
+		    varying vec2 uv;
+
+		    void main(void) {
+		    	uv = aTextureCoord;
+		        gl_Position = uPMatrix * uMVMatrix * uMMatrix * vec4(aVertexPosition, 1.0);
+		    }
+		</src>
+		<params>
+			<param name="uMVMatrix" type="mat4" />
+			<param name="uMMatrix" type="mat4" />
+			<param name="uPMatrix" type="mat4" />
+			<param name="aVertexPosition" type="float3" />
+			<param name="aTextureCoord" type="float2" />
+		</params>
+	</shader>
+	<shader name="deffered_color_basic_ps" type="pixel">
+		<src target="webgl">
+			precision highp float;
+
+			uniform sampler2D uSampler;
+
+		   	varying vec2 uv;
+
+		   	const float unit = 255.0/256.0;
+		    float vec3_to_float( vec3 data ) {
+		    	highp float compressed = fract( data.x * unit ) + floor( data.y * unit * 255.0 ) + floor( data.z * unit * 255.0 ) * 255.0;
+		    	return compressed;
+		    }
+
+		    void main(void) {
+		    	vec4 diffuse = texture2D(uSampler, vec2(uv.s, uv.t));
+
+		    	const float compressionScale = 0.999;
+        		gl_FragColor.x = vec3_to_float( compressionScale * diffuse.xyz );
+        		gl_FragColor.y = 0.0;
+        		gl_FragColor.z = 0.0;
+        		gl_FragColor.w = 1.0;
+		    }
+		</src>
+		<params>
+			<param name="uSampler" type="tex2d" />
+		</params>
+	</shader>
 	<shader name="deffered_normal_terrain_vs" type="vertex">
 		<src target="webgl">
 			uniform mat4 uMVMatrix;
@@ -12,7 +110,7 @@
         	varying vec3 vNormal;
 
 		    void main(void) {
-				vec2 uv = (aVertexPosition.xy + (planeSize * planePos)) / (planeSize);
+				vec2 uv = (aVertexPosition.xy + (planeSize * planePos) + (planeSize / 2.0)) / (planeSize);
 				vec4 vColor = texture2D(uSampler, uv);
 
 				vec2 offset = vec2(1.0, 1.0) / planeSize;
@@ -30,7 +128,7 @@
 
 				float height = vColor.x * 25.0;
 				
-				pos = uPMatrix * uMVMatrix * vec4(aVertexPosition.x + (planeSize.x * planePos.x), height, -(aVertexPosition.y + (planeSize.y * planePos.y)), 1.0);
+				pos = uPMatrix * uMVMatrix * vec4(aVertexPosition.x + (planeSize.x * planePos.x), height, aVertexPosition.y + (planeSize.y * planePos.y), 1.0);
 
             	gl_Position = pos;
 		    }
@@ -74,11 +172,11 @@
         	varying vec2 uv;
 
 		    void main(void) {
-				uv = (aVertexPosition.xy + (planeSize * planePos)) / (planeSize);
+				uv = (aVertexPosition.xy + (planeSize * planePos) + (planeSize / 2.0)) / (planeSize);
 				vec4 vColor = texture2D(uSampler, uv);
 				float height = vColor.x * 25.0;
 				
-				vec4 worldPosition = uMVMatrix * vec4(aVertexPosition.x + (planeSize.x * planePos.x), height, -(aVertexPosition.y + (planeSize.y * planePos.y)), 1.0);
+				vec4 worldPosition = uMVMatrix * vec4(aVertexPosition.x + (planeSize.x * planePos.x), height, aVertexPosition.y + (planeSize.y * planePos.y), 1.0);
 
             	gl_Position = uPMatrix * worldPosition;
 		    }
@@ -145,7 +243,7 @@
 			<param name="mask" type="tex2d" />
 		</params>
 	</shader>
-	<shader name="deffered_combine_terrain_vs" type="vertex">
+	<shader name="deffered_combine_vs" type="vertex">
 		<src target="webgl">
 			attribute vec3 aVertexPosition;
 			varying vec2 uv;
@@ -160,7 +258,7 @@
 			<param name="aVertexPosition" type="float3" />
 		</params>
 	</shader>
-	<shader name="deffered_combine_terrain_ps" type="pixel">
+	<shader name="deffered_combine_ps" type="pixel">
 		<src target="webgl">
 			precision mediump float;
 			
@@ -176,7 +274,7 @@
 			<param name="sampler" type="tex2d" />
 		</params>
 	</shader>
-	<shader name="deffered_directional_terrain_vs" type="vertex">
+	<shader name="deffered_directional_vs" type="vertex">
 		<src target="webgl">
 			attribute vec3 aVertexPosition;
 
@@ -188,7 +286,7 @@
 			<param name="aVertexPosition" type="float3" />
 		</params>
 	</shader>
-	<shader name="deffered_directional_terrain_ps" type="pixel">
+	<shader name="deffered_directional_ps" type="pixel">
 		<src target="webgl">
 			precision mediump float;
 
@@ -214,7 +312,7 @@
 		    	vec4 normalDepth = texture2D( normalSampler, texCoord );
 		    	float z = normalDepth.w;
 
-		    	if ( z == 0.0 ) discard;
+		    	//if ( z == 0.0 ) discard;
 
 		    	vec2 xy = texCoord * 2.0 - 1.0;
 
@@ -223,7 +321,7 @@
 				vertexPositionVS.xyz /= vertexPositionVS.w;
 				vertexPositionVS.w = 1.0;
 
-				vec3 normal = normalDepth.xyz * 2.0 - 1.0;
+				vec3 normal = normalize(normalDepth.xyz * 2.0 - 1.0);
 
 				vec4 colorMap = texture2D( colorSampler, texCoord );
 

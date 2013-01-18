@@ -12,6 +12,11 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra_engi
 		Ultra.Web3DEngine.Objects.Base.call(this);
 		this.projMatrix = Ultra.Math.Matrix4.create();
 		this.up = Ultra.Math.Vector3.create([0, 1, 0]);
+
+		this.fustrum = Ultra.Math.Fustrum.create();
+		this.fustrum_dirty = true;
+
+		this.tMat = Ultra.Math.Matrix4.create();
     };
 
     _.extend(Ultra.Web3DEngine.Cameras.Base.prototype, Ultra.Web3DEngine.Objects.Base.prototype, {
@@ -22,8 +27,16 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra_engi
 		getProjectionMatrix: function() {
 			return this.projMatrix;
 		},
+		getFustrum: function() {
+			return this.fustrum;
+		},
+		updateFustrum: function() {
+			Ultra.Math.Matrix4.multiply(this.tMat, this.getProjectionMatrix(), this.getMatrix());
+			Ultra.Math.Fustrum.setFromMatrix4(this.fustrum, this.tMat);
+		},
 		updateProjectionMatrix: function() {
-			//Dummy Function
+		},
+		updateMatrix: function() {
 		}
     });
 
@@ -42,6 +55,7 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra_engi
     _.extend(Ultra.Web3DEngine.Cameras.PerspectiveCamera.prototype, Ultra.Web3DEngine.Cameras.Base.prototype, {
 		updateProjectionMatrix: function() {
 			Ultra.Math.Matrix4.perspective(this.projMatrix, this.fov, this.aspect, this.near, this.far);
+			this.updateFustrum();
 		},
 		updateMatrix: function() {
 			Ultra.Math.Matrix4.identity(this.matrix);
@@ -49,9 +63,9 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra_engi
 			Ultra.Math.Matrix4.rotateY(this.matrix, this.matrix, this.rotation[1]);
 			Ultra.Math.Matrix4.rotateZ(this.matrix, this.matrix, this.rotation[2]);
 			Ultra.Math.Matrix4.translate(this.matrix, this.matrix, this.position);
-			//Ultra.Math.Matrix4.scale(this.matrix, this.scale);
-			
+
 			this.matrixDirty = false;
+			this.updateFustrum();
 		}
     });
 
@@ -71,19 +85,8 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra_engi
     _.extend(Ultra.Web3DEngine.Cameras.OrthographicCamera.prototype, Ultra.Web3DEngine.Cameras.Base.prototype, {
 		updateProjectionMatrix: function() {
 			Ultra.Math.Matrix4.ortho(this.projMatrix, this.left, this.right, this.bottom, this.top, this.near, this.far);
+			this.updateFustrum();
 		}
-		/*,
-		updateMatrix: function() {
-			Ultra.Math.Matrix4.identity(this.matrix);
-			Ultra.Math.Matrix4.rotateX(this.matrix, this.matrix, this.rotation[0]);
-			Ultra.Math.Matrix4.rotateY(this.matrix, this.matrix, this.rotation[1]);
-			Ultra.Math.Matrix4.rotateZ(this.matrix, this.matrix, this.rotation[2]);
-			Ultra.Math.Matrix4.translate(this.matrix, this.matrix, this.position);
-			//Ultra.Math.Matrix4.scale(this.matrix, this.scale);
-			
-			this.matrixDirty = false;
-		}
-		*/
     });
 
     Ultra.Web3DEngine.Cameras.FirstPersonCamera = function(input_handler, fov, aspect, near, far) {

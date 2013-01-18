@@ -1,5 +1,5 @@
 /*global: document:false*/
-define(['ultra/ultra', 'underscore', 'ultra_engine/resources/texture'], function(Ultra, _, $) {
+define(['ultra/ultra', 'underscore', 'ultra_engine/resources/texture', 'ultra_engine/objects/plane'], function(Ultra, _, $) {
 	'use strict';
 
 	if(_.isUndefined(Ultra.Web3DEngine)) {
@@ -22,7 +22,8 @@ define(['ultra/ultra', 'underscore', 'ultra_engine/resources/texture'], function
 			minFilter : Ultra.Consts.NearestFilter,
 			format : Ultra.Consts.RGBAFormat,
 			type : Ultra.Consts.FloatType,
-			mipmap: false
+			mipmap: false,
+			stencilBuffer: false
 		});
 
 		this.rtColor = engine.createRenderTarget(1024, 800, {
@@ -31,7 +32,8 @@ define(['ultra/ultra', 'underscore', 'ultra_engine/resources/texture'], function
 			format : Ultra.Consts.RGBAFormat,
 			type : Ultra.Consts.FloatType,
 			mipmap: false,
-			srcDepthBuffer : this.rtNormalDepth
+			srcDepthBuffer : this.rtNormalDepth,
+			stencilBuffer: false
 		});
 
 		this.rtLight = engine.createRenderTarget(1024, 800, {
@@ -40,7 +42,8 @@ define(['ultra/ultra', 'underscore', 'ultra_engine/resources/texture'], function
 			format : Ultra.Consts.RGBAFormat,
 			type : Ultra.Consts.FloatType,
 			mipmap: false,
-			srcDepthBuffer : this.rtNormalDepth
+			srcDepthBuffer : this.rtNormalDepth,
+			stencilBuffer: false
 		});
 
 		this.rtFinal = engine.createRenderTarget(1024, 800, {
@@ -55,172 +58,144 @@ define(['ultra/ultra', 'underscore', 'ultra_engine/resources/texture'], function
 		this.lightDir = vec3.fromValues(0, 0.25, 0.75);
 		this.lightRot = mat4.create();
 
-		this.tVert = this.buildPlanePositions(2, 1, 0.0);
-		this.iVert = this.buildPlaneIndices(2);
+		this.tMat = Ultra.Math.Matrix4.create();
 
 		this.camera = new Ultra.Web3DEngine.Cameras.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-		console.log(this.tVert);
-
+		this.fullScreenPlane = new Ultra.Web3DEngine.Objects.Plane(2, 2, 1);
 	};
 
 	_.extend(Ultra.Web3DEngine.RenderSystem.Renderer.Deffered.prototype, {
-		buildPlanePositions: function( cells, scale, height ) {
-			var halfGridSize = cells * scale / 2;
+		render: function(device, target, objects, camera, elapsed) {
+			//Ultra.Math.Matrix4.multiply(this.tMat, camera.getProjectionMatrix(), camera.getMatrix());
+			//Ultra.Math.Fustrum.setFromMatrix4(this.fustrum, this.tMat);
 
-			var positions = [];
-			for (var y = 0; y < cells + 1; ++y) {
-				for (var x = 0; x < cells + 1; ++x) {
-					positions.push(x * scale - halfGridSize);
-					positions.push(y * scale - halfGridSize);
-					positions.push(height);
-				}
-			}
-			return positions;
-		},
-		buildPlaneIndices: function( cells ) {
-			var indices = [];
-			var count = cells + 1;
-			var odd = true;
-			var x;
-			for (var y = 0; y < cells; ++y) {
-				//if(y != 0)
-				//indices.push(indices[indices.length - 1]);
-
-				if(odd) {
-					for (x = 0; x < cells + 1; ++x) {
-						indices.push((y * count) + x);
-						indices.push(((y + 1) * count) + x);
-					}
-				} else {
-					for (x = 0; x < cells + 1; ++x) {
-						indices.push(((y + 1) * count) - (x + 1));
-						indices.push(((y + 1) * count) + (count - x - 1));
-					}
-				}
-
-
-				//if(y != (cells - 2))
-				//indices.push((y + 1) * cells + (cells - 1));
-
-				odd = !odd;
-			}
-			return indices;
-		},
-		render: function(device, objects, camera) {
-			if(!this.buffertVert) {
-				this.buffertVert = device.createVertexBuffer(this.tVert, 3);
-				this.bufferiVert = device.createIndexBuffer(this.iVert);
-			}
-
-			//device.gl.enable( device.gl.DEPTH_TEST );
-			//device.gl.enable( device.gl.STENCIL_TEST );
-			device.gl.stencilOp( device.gl.REPLACE, device.gl.REPLACE, device.gl.REPLACE );
-			device.gl.stencilFunc( device.gl.ALWAYS, 1, 0xffffffff );
-			device.gl.clearStencil( 0 );
-
+			// *************** RENDER Normel Pass
+			var fustrum = camera.getFustrum();
 			device.setRenderTarget(this.rtNormalDepth);
-
-			//RENDER Normel Pass
+			
 			var shader = this.engine.shaderManager.getShaderProgram(['deffered_normal_terrain_vs', 'deffered_normal_terrain_ps']);
 			if(!shader) {
 				device.setRenderTarget(null);
 				return;
 			}
 
-			shader.setParam('uPMatrix', camera.getProjectionMatrix());
-			shader.setParam('uMVMatrix', camera.getMatrix());
+			//Terrain
+			objects[0].render(device, camera, shader);
 
-			shader.setParam('planePos', [objects.patches[0].pos[0], objects.patches[0].pos[1]]);
-			shader.setParam('planeSize', [128, 128]);
+			//Mesh
+			shader = this.engine.shaderManager.getShaderProgram(['deffered_normal_basic_vs', 'deffered_normal_basic_ps']);
 
-			shader.setParam('uSampler', objects.patches[0].heightMap);
-			shader.setParam('aVertexPosition', objects.planes[0].vBuffer);
+			var pos = Ultra.Math.Matrix4.getPosition(objects[1].getMatrix());
 
-			device.drawIndex(objects.planes[0].iBuffer, shader, Ultra.Web3DEngine.TRIANGLE_STRIP);
+			if(Ultra.Math.Fustrum.containsSphear(fustrum, pos, 3.0))
+				objects[1].render(device, camera, shader);
 
 			//End Normal Pass
-			device.gl.stencilFunc( device.gl.EQUAL, 1, 0xffffffff );
-			device.gl.stencilOp( device.gl.KEEP, device.gl.KEEP, device.gl.KEEP );
 
+			// ********************* Render Color Pass
 			device.setRenderTarget(this.rtColor, true, true, false);
-
-			//Render Color Pass
 			shader = this.engine.shaderManager.getShaderProgram(['deffered_color_terrain_vs', 'deffered_color_terrain_ps']);
 			if(!shader) {
 				device.setRenderTarget(null);
 				return;
 			}
 
-			shader.setParam('uPMatrix', camera.getProjectionMatrix());
-			shader.setParam('uMVMatrix', camera.getMatrix());
+			objects[0].render(device, camera, shader);
+			shader = this.engine.shaderManager.getShaderProgram(['deffered_color_basic_vs', 'deffered_color_basic_ps']);
 
-			shader.setParam('planePos', [objects.patches[0].pos[0], objects.patches[0].pos[1]]);
-			shader.setParam('planeSize', [128, 128]);
+			pos = Ultra.Math.Matrix4.getPosition(objects[1].getMatrix());
+			if(Ultra.Math.Fustrum.containsSphear(fustrum, pos, 3.0))
+				objects[1].render(device, camera, shader);
 
-			shader.setParam('uSampler', objects.patches[0].heightMap);
-			shader.setParam('mask', objects.patches[0].mask);
-			shader.setParam('combined', objects.patches[0].combined);
-			shader.setParam('aVertexPosition', objects.planes[0].vBuffer);
-
-			device.drawIndex(objects.planes[0].iBuffer, shader, Ultra.Web3DEngine.TRIANGLE_STRIP);
-
-			//End Color Pass
-			//TODO: Should be GEQUAL.. something wrong!!!
-			device.gl.depthFunc( device.gl.LEQUAL );
+			// *********************** Render Light Pass
 			device.setRenderTarget(this.rtLight, true, false, false);
-			
-			//device.setRenderTarget(null);
-			//Render Light Pass
 
-			//_gl.framebufferRenderbuffer( _gl.FRAMEBUFFER, _gl.DEPTH_ATTACHMENT, _gl.RENDERBUFFER, renderTarget.__webglRenderbuffer );
-			shader = this.engine.shaderManager.getShaderProgram(['deffered_directional_terrain_vs', 'deffered_directional_terrain_ps']);
+			Ultra.Math.Matrix4.identity(this.lightRot);
+			Ultra.Math.Matrix4.rotate(this.lightRot, this.lightRot, Ultra.Math.degToRad(0.5), [0, 128, 0]);
+
+			Ultra.Math.Vector3.transformMat4(this.lightDir, this.lightDir, this.lightRot);
+
+			shader = this.engine.shaderManager.getShaderProgram(['deffered_directional_vs', 'deffered_directional_ps']);
 			if(!shader) {
 				device.setRenderTarget(null);
 				return;
 			}
 
-			shader.setParam('aVertexPosition', this.buffertVert);
 			shader.setParam('viewHeight', 800);
 			shader.setParam('viewWidth', 1024);
 
 			var invProj = Ultra.Math.Matrix4.create();
-
 			Ultra.Math.Matrix4.invert(invProj, camera.getProjectionMatrix());
-
-			mat4.identity(this.lightRot);
-			mat4.rotate(this.lightRot, this.lightRot, Ultra.Math.degToRad(0.5), [0, 128, 0]);
-
-			Ultra.Math.Vector3.transformMat4(this.lightDir, this.lightDir, this.lightRot);
 
 			shader.setParam('lightVector', this.lightDir);
 			shader.setParam('matProjInverse', invProj);
 			shader.setParam('normalSampler', this.rtNormalDepth);
 			shader.setParam('colorSampler', this.rtColor);
 
-			device.drawIndex(this.bufferiVert, shader, Ultra.Web3DEngine.TRIANGLE_STRIP);
+			//Disable depth mask write to not fuck up depth buffer
+			if(camera.reflect)
+				device.gl.depthFunc( device.gl.GEQUAL );
 
-			device.gl.depthFunc( device.gl.LEQUAL );
-			device.gl.disable( device.gl.STENCIL_TEST );
+			device.gl.depthMask(false);
+			this.fullScreenPlane.render(device, camera, shader, { wireframe : false });
+			device.gl.depthMask(true);
 
-			device.setRenderTarget(null);
+			if(objects.length == 3) {
+				pos = Ultra.Math.Matrix4.getPosition(objects[2].getMatrix());
+				if(Ultra.Math.Fustrum.containsSphear(fustrum, pos, 3.0)) {
+					//Render Forward Objects
+					shader = this.engine.shaderManager.getShaderProgram(['water_vs', 'water_ps']);
+					if(!shader)
+						return;
 
-			//Combine Pass
-			shader = this.engine.shaderManager.getShaderProgram(['deffered_combine_terrain_vs', 'deffered_combine_terrain_ps']);
+ 
+					var reflMat = Ultra.Math.Matrix4.create();
+					Ultra.Math.Matrix4.multiply(reflMat, objects[2].envCamera.getMatrix(), objects[2].getMatrix());
+					Ultra.Math.Matrix4.multiply(reflMat, objects[2].envCamera.getProjectionMatrix(), reflMat);
+
+					shader.setParam('projRefl', reflMat);
+					shader.setParam('uSampler', objects[1].textures['water']);
+					shader.setParam('envSampler', objects[2].envMap);
+					shader.setParam('bump', objects[1].textures['water_bump']);
+
+					shader.setParam('amplitude', [0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+					shader.setParam('wavelength', [8.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+					shader.setParam('speed', [5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+					shader.setParam('direction', [-Math.cos(Math.PI / 4), -Math.sin(Math.PI / 4), Math.cos(Math.PI / 4), Math.sin(Math.PI / 4), 0.0, 0.0, 0.0, 0.0 ,0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+
+					shader.setParam('lightDir', this.lightDir);
+
+					if(!this.time)
+						this.time = 0;
+
+					this.time += elapsed;
+
+					shader.setParam('elapsed', this.time);
+					shader.setParam('elapsed2', this.time);
+
+					device.gl.enable(device.gl.BLEND);
+					device.gl.blendFunc(device.gl.SRC_ALPHA, device.gl.ONE_MINUS_SRC_ALPHA);
+					objects[2].render(device, camera, shader);
+					device.gl.disable(device.gl.BLEND);
+					objects[2].clipped = false;
+				} else {
+					objects[2].clipped = true;
+				}
+			}
+
+			// ************************* Combine Pass
+			device.gl.depthFunc( device.gl.LESS );
+			device.setRenderTarget(target);
+
+			shader = this.engine.shaderManager.getShaderProgram(['deffered_combine_vs', 'deffered_combine_ps']);
 			if(!shader) {
 				device.setRenderTarget(null);
 				return;
 			}
-			shader.setParam('aVertexPosition', this.buffertVert);
+
 			shader.setParam('sampler', this.rtLight);
-
-			device.drawIndex(this.bufferiVert, shader, Ultra.Web3DEngine.TRIANGLE_STRIP);
-			//End Combine Pass
-			//device.gl.depthFunc( device.gl.GEQUAL );
-			//device.setRenderTarget(null, false, false, true);
-		},
-		finish: function() {
-
+			this.fullScreenPlane.render(device, camera, shader, { wireframe : false });
 		}
 	});
 });

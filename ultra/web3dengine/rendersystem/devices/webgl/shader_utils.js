@@ -6,6 +6,9 @@ function() {
 		setfloat: function(device, param) {
 			device.gl.uniform1f(param.webgl.loc, param.data);
 		},
+		setfloatarray: function(device, param) {
+			device.gl.uniform1fv(param.webgl.loc, param.data);
+		},
 		setfloat2: function(device, param) {
 			device.gl.uniform2fv(param.webgl.loc, param.data);
 		},

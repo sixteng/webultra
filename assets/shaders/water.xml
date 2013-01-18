@@ -1,0 +1,165 @@
+<shaders>
+	<shader name="water_vs" type="vertex">
+		<src target="webgl">
+			attribute vec3 aVertexPosition;
+		    attribute vec3 aVertexNormal;
+		    attribute vec2 aTextureCoord;
+
+		    uniform mat4 uMVMatrix;
+		    uniform mat4 uMMatrix;
+		    uniform mat4 uPMatrix;
+
+		    uniform float amplitude[8];
+			uniform float wavelength[8];
+			uniform float speed[8];
+			uniform vec2 direction[8];
+
+			uniform float elapsed2;
+
+		    varying vec2 vTextureCoord;
+		    varying vec3 normal;
+		   // varying vec3 eyeNormal;
+		    varying vec3 pos;
+
+		    const float pi = 3.14159;
+		    
+			float waveHeight(float x, float y) {
+			    float height = 0.0;
+
+			    for (int i = 0; i < 2; ++i) {
+			    	float frequency = 2.0 * pi / wavelength[i];
+			    	float phase = speed[i] * frequency;
+			    	float theta = dot(direction[i], vec2(x, y));
+			    	height += amplitude[i] * sin(theta * frequency + elapsed2 * phase);
+			    }
+			        
+			    return height;
+			}
+			/*
+			float dWavedx(int i, float x, float y) {
+			    float frequency = 2.0*pi/wavelength[i];
+			    float phase = speed[i] * frequency;
+			    float theta = dot(direction[i], vec2(x, y));
+			    float A = amplitude[i] * direction[i].x * frequency;
+			    return A * cos(theta * frequency + elapsed2 * phase);
+			}
+
+			float dWavedy(int i, float x, float y) {
+			    float frequency = 2.0*pi/wavelength[i];
+			    float phase = speed[i] * frequency;
+			    float theta = dot(direction[i], vec2(x, y));
+			    float A = amplitude[i] * direction[i].y * frequency;
+			    return A * cos(theta * frequency + elapsed2 * phase);
+			}
+
+			vec3 waveNormal(float x, float y) {
+			    float dx = 0.0;
+			    float dy = 0.0;
+			    for (int i = 0; i < 2; ++i) {
+			        dx += dWavedx(i, x, y);
+			        dy += dWavedy(i, x, y);
+			    }
+			    vec3 n = vec3(-dx, -dy, 1.0);
+			    return normalize(n);
+			}
+			*/
+		    void main(void) {
+		    	pos = vec3(aVertexPosition);
+
+		    	pos.z += waveHeight(pos.x, pos.y);
+		    	//normal = waveNormal(pos.x, pos.y);
+		    	//eyeNormal = normalize(uNMatrix * normal);
+
+		    	//position = pos.xyz / pos.w;
+
+				//eyeNormal = vec4( cross(va,vb), s11 );
+
+		        gl_Position = uPMatrix * uMVMatrix * uMMatrix * vec4(pos, 1.0);
+		        vTextureCoord = aTextureCoord;
+		    }
+		</src>
+		<params>
+			<param name="uMVMatrix" type="mat4" />
+			<param name="uMMatrix" type="mat4" />
+			<param name="uPMatrix" type="mat4" />
+			<param name="aVertexNormal" type="float3" />
+			<param name="aVertexPosition" type="float3" />
+			<param name="lightDir" type="float3" />
+			<param name="aTextureCoord" type="float2" />
+			<param name="elapsed2" type="float" />
+
+			<param name="amplitude" type="floatarray" />
+			<param name="wavelength" type="floatarray" />
+			<param name="speed" type="floatarray" />
+			<param name="direction" type="float2" />
+		</params>
+	</shader>
+	<shader name="water_ps" type="pixel">
+		<src target="webgl">
+			precision mediump float;
+
+		   	varying vec2 vTextureCoord;
+		   	varying vec3 normal;
+
+		   	uniform mat4 projRefl;
+
+		   	uniform float elapsed;
+		    //varying vec3 eyeNormal;
+		    varying vec3 pos;
+
+		    uniform vec3 lightDir;
+		    uniform sampler2D uSampler;
+		    uniform sampler2D bump;
+		    uniform sampler2D envSampler;
+		    uniform mat3 uNMatrix;
+
+		    vec4 getDiffuse(vec4 diffuse) {
+		    	return diffuse;
+		    }
+
+		    void main(void) {
+		    	//vec3 eye = normalize(eyePos - position);
+		    	//vec3 r = reflect(eye, normal);
+
+		    	vec2 uv = vTextureCoord * 8.0 + vec2(0.0, -(elapsed / 10.0));
+		    	vec2 offset = vec2(1.0, 1.0) / vec2(8.0, 8.0);
+		    	float s01 = texture2D(bump, uv + vec2(-offset.x, 0.0)).x;
+				float s21 = texture2D(bump, uv + vec2(offset.x, 0.0)).x;
+				float s10 = texture2D(bump, uv + vec2(0.0, -offset.x)).x;
+				float s12 = texture2D(bump, uv + vec2(0.0, offset.x)).x;
+
+				vec3 va = normalize(vec3(2.0, s21 - s01, 0.0));
+				vec3 vb = normalize(vec3(0.0, s12 - s10, -2.0));
+
+				vec3 eyeNormal = vec3( cross(va,vb) );
+
+		    	float diffuseLightWeighting = max(dot(eyeNormal, normalize(lightDir)), 0.0);
+                vec3 lightWeighting = vec3(0.1, 0.1, 0.1) + vec3(0.2, 0.2, 0.2) * diffuseLightWeighting;
+
+
+                vec4 vClipReflection = projRefl * vec4(pos.xy, 0.0, 1.0);
+                vec2 vDeviceReflection = vClipReflection.st / vClipReflection.q;
+                vec2 vTextureReflection = vec2(0.5, 0.5) + 0.5 * vDeviceReflection;
+
+                //vTextureReflection * 0.1;
+
+		    	vec4 textureColor = texture2D(envSampler, vTextureReflection);
+		    	vec4 textureColor2 = texture2D(uSampler, vTextureCoord);
+
+		    	textureColor = textureColor + vec4(textureColor2.rgb * lightWeighting, textureColor2.a);
+
+		    	textureColor.a = textureColor2.a;
+        		gl_FragColor = textureColor;
+		    }
+		</src>
+		<params>
+			<param name="bump" type="tex2d" />
+			<param name="envSampler" type="tex2d" />
+			<param name="uSampler" type="tex2d" />
+			<param name="lightDir" type="float3" />
+			<param name="elapsed" type="float" />
+			<param name="uNMatrix" type="mat3" />
+			<param name="projRefl" type="mat4" />
+		</params>
+	</shader>
+</shaders>

@@ -414,8 +414,11 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 			}
 			return x + 1;
 		},
-		drawIndex: function(iBuffer, shader, type) {
+		drawIndex: function(iBuffer, shader, type, opts) {
 			if(!this.gl) return null;
+
+			if(!opts)
+				opts = {};
 
 			if(!this.setShader(shader))
 				return;
@@ -438,7 +441,7 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 
 			this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, iBuffer);
 
-			if(this.config.wireframe === true) {
+			if(this.config.wireframe === true && opts.wireframe !== false) {
 				this.gl.drawElements(this.gl.LINES, iBuffer.numItems, this.gl.UNSIGNED_SHORT, 0);
 			} else {
 				if(type == Ultra.Web3DEngine.TRIANGLE_STRIP)

@@ -5,9 +5,84 @@ define(['ultra/ultra', 'underscore'], function(Ultra, _, $) {
 	Ultra.Math = {};
 
 	Ultra.Math.Vector3 = vec3;
+	Ultra.Math.Vector4 = vec4;
 	Ultra.Math.Matrix3 = mat3;
 	Ultra.Math.Matrix4 = mat4;
 	Ultra.Math.Quat = quat;
+
+	Ultra.Math.Plane = {};
+	Ultra.Math.Plane.create = function() {
+		return {
+			normal : vec3.create(),
+			constant : 0
+		};
+	};
+
+	Ultra.Math.Plane.fromValues = function(x, y, z, w) {
+		return {
+			normal : vec3.fromValues(x, y, z),
+			constant : w
+		};
+	};
+
+	Ultra.Math.Plane.set = function(out, x, y, z, w) {
+		Ultra.Math.Vector3.set(out.normal, x, y, z);
+		out.constant = w;
+	};
+
+	Ultra.Math.Plane.normalize = function(out, plane) {
+		var len = 1.0 / Ultra.Math.Vector3.length(plane.normal);
+
+		Ultra.Math.Vector3.scale(out.normal, plane.normal, len);
+		out.constant = plane.constant * len;
+	};
+
+	Ultra.Math.Plane.distanceToPoint = function(plane, point) {
+		return Ultra.Math.Vector3.dot(plane.normal, point) + plane.constant;
+	};
+
+	Ultra.Math.Fustrum = {};
+	Ultra.Math.Fustrum.create = function() {
+		return [
+			Ultra.Math.Plane.create(),
+			Ultra.Math.Plane.create(),
+			Ultra.Math.Plane.create(),
+			Ultra.Math.Plane.create(),
+			Ultra.Math.Plane.create(),
+			Ultra.Math.Plane.create()
+		];
+	};
+
+	Ultra.Math.Fustrum.setFromMatrix4 = function(out, mat) {
+		var me0 = mat[0], me1 = mat[1], me2 = mat[2], me3 = mat[3];
+		var me4 = mat[4], me5 = mat[5], me6 = mat[6], me7 = mat[7];
+		var me8 = mat[8], me9 = mat[9], me10 = mat[10], me11 = mat[11];
+		var me12 = mat[12], me13 = mat[13], me14 = mat[14], me15 = mat[15];
+
+		Ultra.Math.Plane.set(out[0], me3 - me0, me7 - me4, me11 - me8, me15 - me12);
+		Ultra.Math.Plane.set(out[1], me3 + me0, me7 + me4, me11 + me8, me15 + me12);
+		Ultra.Math.Plane.set(out[2], me3 + me1, me7 + me5, me11 + me9, me15 + me13);
+		Ultra.Math.Plane.set(out[3], me3 - me1, me7 - me5, me11 - me9, me15 - me13);
+		Ultra.Math.Plane.set(out[4], me3 - me2, me7 - me6, me11 - me10, me15 - me14);
+		Ultra.Math.Plane.set(out[5], me3 + me2, me7 + me6, me11 + me10, me15 + me14);
+
+		Ultra.Math.Plane.normalize(out[0], out[0]);
+		Ultra.Math.Plane.normalize(out[1], out[1]);
+		Ultra.Math.Plane.normalize(out[2], out[2]);
+		Ultra.Math.Plane.normalize(out[3], out[3]);
+		Ultra.Math.Plane.normalize(out[4], out[4]);
+		Ultra.Math.Plane.normalize(out[5], out[5]);
+	};
+
+	Ultra.Math.Fustrum.containsSphear = function(fustrum, point, rad) {
+		var dist = 0.0;
+		for(var i = 0; i < 6; i++) {
+			dist = Ultra.Math.Plane.distanceToPoint(fustrum[i], point);
+			if(dist <= -rad) return false;
+		}
+
+		return true;
+	};
 
 	Ultra.Math.degToRad = function(degrees) {
 		return degrees * Math.PI / 180;
@@ -57,7 +132,7 @@ define(['ultra/ultra', 'underscore'], function(Ultra, _, $) {
 		if(!pos)
 			pos = Ultra.Math.Vector3.create();
 
-		Ultra.Math.Vector3.set([m[12], m[13], m[14]], pos);
+		Ultra.Math.Vector3.set(pos, m[12], m[13], m[14]);
 
 		return pos;
 	};
@@ -88,12 +163,12 @@ define(['ultra/ultra', 'underscore'], function(Ultra, _, $) {
 
 		if(rotMat[8] < 1) {
 			if(rotMat[8] > -1) {
-				Ultra.Math.Vector3.set([Math.atan2(-rotMat[9], rotMat[10]), Math.asin(rotMat[8]), Math.atan2(-rotMat[4], rotMat[0])], rot);
+				Ultra.Math.Vector3.set(rot, Math.atan2(-rotMat[9], rotMat[10]), Math.asin(rotMat[8]), Math.atan2(-rotMat[4], rotMat[0]));
 			} else {
-				Ultra.Math.Vector3.set([-Math.atan2(rotMat[6], rotMat[5]), -Math.PI / 2, 0], rot);
+				Ultra.Math.Vector3.set(rot, -Math.atan2(rotMat[6], rotMat[5]), -Math.PI / 2, 0);
 			}
 		} else {
-			Ultra.Math.Vector3.set([Math.atan2(rotMat[6], rotMat[5]), Math.PI / 2, 0], rot);
+			Ultra.Math.Vector3.set(rot, Math.atan2(rotMat[6], rotMat[5]), Math.PI / 2, 0);
 		}
 
 		//Ultra.Math.Vector3.set(rot, [m[12], m[13], m[14]]);
@@ -106,16 +181,16 @@ define(['ultra/ultra', 'underscore'], function(Ultra, _, $) {
 		if(!scale)
 			scale = Ultra.Math.Vector3.create();
 
-		Ultra.Math.Vector3.set([m[0], m[1], m[2]], scale);
+		Ultra.Math.Vector3.set(scale, m[0], m[1], m[2]);
 		var x = Ultra.Math.Vector3.length(scale);
 
-		Ultra.Math.Vector3.set([m[4], m[5], m[6]], scale);
+		Ultra.Math.Vector3.set(scale, m[4], m[5], m[6]);
 		var y = Ultra.Math.Vector3.length(scale);
 
-		Ultra.Math.Vector3.set([m[8], m[9], m[10]], scale);
+		Ultra.Math.Vector3.set(scale, m[8], m[9], m[10]);
 		var z = Ultra.Math.Vector3.length(scale);
 
-		Ultra.Math.Vector3.set([x, y, z], scale);
+		Ultra.Math.Vector3.set(scale, x, y, z);
 
 		return scale;
 	};
