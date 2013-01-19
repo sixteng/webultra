@@ -1,5 +1,4 @@
-/*global: mat4:false, mat3:false, vec3:false*/
-define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra/common/math', 'ultra_engine/objects/plane'], function(Ultra, _, Jvent) {
+define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra/common/math', 'ultra_engine/objects/base', 'ultra_engine/objects/plane'], function(Ultra, _, Jvent) {
 	'use strict';
 
 	if(_.isUndefined(Ultra.Web3DEngine))
@@ -12,23 +11,20 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra/comm
     };
 
     _.extend(Ultra.Web3DEngine.Terrain.prototype, Jvent.prototype, {
-		addPatch: function(path, device, pos) {
+		addPatch: function(path, pos) {
 			var patch = new Ultra.Web3DEngine.TerrainPatch(this.engine);
-			patch.createFromFile(path, device);
+			patch.createFromFile(path);
 			this.patches.push(patch);
 
 
 			if(pos)
 				patch.setPos(pos[0], pos[1], 0);
 		},
-		buildPlanes: function(device) {
+		buildPlanes: function() {
 			this.cells = 127;
 			this.size = 128;
 
-			//var tVert = this.buildPlanePositions(this.cells, this.size / (this.cells + 1), 0.0);
-			//var iVert = this.buildPlaneIndices(this.cells);
 			this.planes.push(new Ultra.Web3DEngine.Objects.Plane(128, 128, 127));
-			//this.planes.push({ vBuffer : device.createVertexBuffer(tVert, 3), iBuffer : device.createIndexBuffer(iVert)});
 		},
 		render: function(device, camera, shader) {
 			for(var i = 0; i < this.patches.length; i += 1) {
@@ -43,10 +39,11 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra/comm
     });
 
 	Ultra.Web3DEngine.TerrainPatch = function(engine) {
+		Ultra.Web3DEngine.Objects.Base.call(this);
 		this.engine = engine;
 
-		this.matrix = mat4.create();
-		mat4.identity(this.matrix);
+		this.matrix = Ultra.Math.Matrix4.create();
+		Ultra.Math.Matrix4.identity(this.matrix);
 
 		this.ready = false;
 		this.collection = {};
@@ -61,8 +58,8 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra/comm
 		//this.lightDir = vec3.fromValues(0, 0, 100);
 	};
 
-	_.extend(Ultra.Web3DEngine.TerrainPatch.prototype, Jvent.prototype, {
-		createFromFile: function(path, device) {
+	_.extend(Ultra.Web3DEngine.TerrainPatch.prototype, Ultra.Web3DEngine.Objects.Base.prototype, Jvent.prototype, {
+		createFromFile: function(path) {
 			var self = this;
 
 			self.heightMap = this.engine.textureManager.getTexture('/assets/images/heightmap.png', {});
@@ -94,16 +91,6 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra/comm
 		},
 		setShaders: function(shaders) {
 
-		},
-		setRot: function(x, y, z) {
-			mat4.identity(this.matrix);
-			mat4.rotate(this.matrix, Ultra.Math.degToRad(x), [1, 0, 0]);
-			mat4.rotate(this.matrix, Ultra.Math.degToRad(y), [0, 1, 0]);
-			mat4.rotate(this.matrix, Ultra.Math.degToRad(z), [0, 0, 1]);
-		},
-		setPos: function(x, y, z) {
-			this.pos = [x, y, z];
-			//mat4.rotate(this.matrix, degToRad(x), [1, 0, 0]);
 		}
 	});
 

@@ -99,7 +99,7 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra_engi
 			shader.setParam('uMMatrix', this.getMatrix());
 			shader.setParam('uNMatrix', normalMatrix);
 
-			device.drawIndex(this.data[device.getName()].iBuffer, shader, Ultra.Web3DEngine.TRIANGLE_STRIP, opts);
+			device.drawIndex(this.data[device.getName()].iBuffer, shader, Ultra.Consts.TRIANGLE_STRIP, opts);
 		}
 	});
 });

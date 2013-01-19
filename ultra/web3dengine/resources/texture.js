@@ -1,13 +1,4 @@
 define(['ultra/ultra', 'underscore', 'Jvent', 'ultra/common/indexed_db', 'ultra_engine/resources/manager'], function(Ultra, _, Jvent) {
-
-	Ultra.Consts = {
-		index : 0,
-		add: function(key) {
-			Ultra.Consts[key] = this.index;
-			this.index++;
-		}
-	};
-
 	Ultra.Resources.Texture = function(config) {
 		this.id = _.uniqueId('file');
 		this.data = {};

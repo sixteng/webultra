@@ -10,35 +10,16 @@ define(['ultra/ultra', 'underscore'], function(Ultra, _, $) {
 	Ultra.Math.Matrix4 = mat4;
 	Ultra.Math.Quat = quat;
 
-	Ultra.Math.Plane = {};
-	Ultra.Math.Plane.create = function() {
-		return {
-			normal : vec3.create(),
-			constant : 0
-		};
-	};
-
-	Ultra.Math.Plane.fromValues = function(x, y, z, w) {
-		return {
-			normal : vec3.fromValues(x, y, z),
-			constant : w
-		};
-	};
-
-	Ultra.Math.Plane.set = function(out, x, y, z, w) {
-		Ultra.Math.Vector3.set(out.normal, x, y, z);
-		out.constant = w;
-	};
+	Ultra.Math.Plane = vec4;
 
 	Ultra.Math.Plane.normalize = function(out, plane) {
-		var len = 1.0 / Ultra.Math.Vector3.length(plane.normal);
+		var len = 1.0 / Ultra.Math.Vector3.length([plane[0], plane[1], plane[2]]);
 
-		Ultra.Math.Vector3.scale(out.normal, plane.normal, len);
-		out.constant = plane.constant * len;
+		Ultra.Math.Plane.scale(out, plane, len);
 	};
 
 	Ultra.Math.Plane.distanceToPoint = function(plane, point) {
-		return Ultra.Math.Vector3.dot(plane.normal, point) + plane.constant;
+		return Ultra.Math.Plane.dot(plane, [point[0], point[1], point[2], 1.0]);
 	};
 
 	Ultra.Math.Fustrum = {};
@@ -88,6 +69,13 @@ define(['ultra/ultra', 'underscore'], function(Ultra, _, $) {
 		return degrees * Math.PI / 180;
 	};
 
+	Ultra.Math.sgn = function(val) {
+		if(val > 0.0) return 1.0;
+		if(val < 0.0) return -1.0;
+
+		return 0.0;
+    };
+
 	Ultra.Math.Matrix3.fromMatrix4 = function(dest, mat) {
 		dest[0] = mat[0], dest[1] = mat[1], dest[2] = mat[2];
         dest[3] = mat[4], dest[4] = mat[5], dest[5] = mat[6];
@@ -127,6 +115,32 @@ define(['ultra/ultra', 'underscore'], function(Ultra, _, $) {
 
 	//Extend the lib with some usefull stuff
 
+	Ultra.Math.Matrix4.reflect = function(m, plane) {
+		Ultra.Math.Plane.normalize(plane, plane);
+
+		var nX = plane[0], nY = plane[1], nZ = plane[2], d = plane[3];
+
+		m[0] = -2 * nX * nX + 1;
+		m[1] = -2 * nX * nY;
+		m[2] = -2 * nX * nZ;
+		m[3] = -2 * nX * d;
+
+		m[4] = -2 * nY * nX;
+		m[5] = -2 * nY * nY + 1;
+		m[6] = -2 * nY * nZ;
+		m[7] = -2 * nY * d;
+
+		m[8] = -2 * nZ * nX;
+		m[9] = -2 * nZ * nY;
+		m[10] = -2 * nZ * nZ + 1;
+		m[11] = -2 * nZ * d;
+
+		m[12] = 0;
+		m[13] = 0;
+		m[14] = 0;
+		m[15] = 1;
+	};
+
 	Ultra.Math.Matrix4.getPosition = function(m, dest) {
 		var pos = dest;
 		if(!pos)
@@ -143,7 +157,7 @@ define(['ultra/ultra', 'underscore'], function(Ultra, _, $) {
 			rot = Ultra.Math.Vector3.create();
 
 		Ultra.Math.Matrix4.getScale(m, rot);
-		var rotMat = Ultra.Math.Matrix4.create(m);
+		var rotMat = Ultra.Math.Matrix4.clone(m);
 
 		rot[0] = 1 / rot[0];
 		rot[1] = 1 / rot[1];

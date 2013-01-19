@@ -21,201 +21,126 @@ requirejs([
 	'ultra_engine/objects/plane',
 	'ultra/common/math'],
 function (Ultra) {
-	var heightmap;
-
-	var mask;
-	var combined;
-
-    var mRef = mat4.create();
     var rCamera = mat4.create();
-    var pCamera = mat4.create();
-    var iCamera = mat4.create();
 
-    var mesh;
-    var mesh2;
+    var house;
+    var water;
     var camera;
+    var reflectedCamera;
     
-    var terrain = null;
+    var terrain;
 
-    var lightDir = vec3.fromValues(0, 0.25, 0.75);
-    var lightRot = mat4.create();
-
-    var v = Ultra.Math.Vector3.fromValues(1, 5, 1);
-    var d = -Ultra.Math.Vector3.dot(v, [0, 1, 0]);
-
+    //Clipping plane for the water surface
     var clipPlane = Ultra.Math.Vector4.fromValues(0, 1, 0, -5.0);
-    var tmpv4 = Ultra.Math.Vector4.create();
-    var q = Ultra.Math.Vector4.create();
 
-    var sgn = function(val) {
-		if(val > 0.0) return 1.0;
-		if(val < 0.0) return -1.0;
+    //Setup reflection matrix for the water surface
+    var mRef = mat4.create();
+    Ultra.Math.Matrix4.reflect(mRef, [clipPlane[0], clipPlane[1], clipPlane[2], 0]);
 
-		return 0.0;
-    };
-
+    //Render function
 	var onTick = function(e, engine, device, elapsed) {
-		//Do some cooool stuff ???
-
 		//Calc reflcection Camera
-
-		//(0, 1, 0, -Y)
-
-		var Y = 0.0;
-		var ny = 1.0;
-
-		mRef[0] = 1;
-		mRef[1] = 0;
-		mRef[2] = 0;
-		mRef[3] = 0;
-		mRef[4] = 0;
-		mRef[5] = -2 * (ny * ny) + 1;
-		mRef[6] = 0;
-		mRef[7] = -2 * ny * Y;
-		mRef[8] = 0;
-		mRef[9] = 0;
-		mRef[10] = 1;
-		mRef[11] = 0;
-		mRef[12] = 0;
-		mRef[13] = 0;
-		mRef[14] = 0;
-		mRef[15] = 1;
-
 		mat4.multiply(rCamera, camera.getMatrix(), mRef);
+		mat4.translate(rCamera, rCamera, [0, 2 * clipPlane[3], 0]);
 
-		camera2.matrix = rCamera;
-		camera2.updateFustrum();
+		reflectedCamera.matrix = rCamera;
+		reflectedCamera.updateFustrum();
 
-		mat4.invert(iCamera, camera2.matrix);
-		mat4.transpose(iCamera, iCamera);
-		vec4.transformMat4(tmpv4, clipPlane, iCamera);
+		water.envCamera = reflectedCamera;
 
-		camera2.updateProjectionMatrix();
-		pCamera = camera2.getProjectionMatrix();
+		reflectedCamera.setNearPlane(clipPlane);
 
-		camera2.oldProj = mat4.clone(pCamera);
-		camera.oldProj = camera.getProjectionMatrix();
-		//mat4.invert(mRef, pCamera);
-		//vec4.transformMat4(q, [sgn(tmpv4[0]), sgn(tmpv4[1]), 1.0, 1.0], mRef);
+		//Needs to be set for the deffered render to change the depth check.. other wise nothing is rendered
+		reflectedCamera.reflect = true;
 
-		q[0] = (sgn(tmpv4[0]) + pCamera[8]) / pCamera[0];
-		q[1] = (sgn(tmpv4[1]) + pCamera[9]) / pCamera[5];
-		q[2] = 1.0;
-		q[3] = (1.0 - pCamera[10]) / pCamera[14];
-
-		var d1 = 1.0 / Ultra.Math.Vector4.dot(tmpv4, q);
-
-		Ultra.Math.Vector4.scale(q, tmpv4, d1);
-
-		pCamera[2] = q[0];
-		pCamera[6] = q[1];
-		pCamera[10] = q[2] + 1.0;
-		pCamera[14] = q[3];
-
-		//camera2.updateProjectionMatrix();
-		mesh2.envCamera = camera2;
-
-		camera2.reflect = true;
-		deffered.render(device, mesh2.envMap, [terrain, mesh], camera2, elapsed);
+		//Render reflected camera / env map
+		deffered.render(device, water.envMap, [terrain, house], reflectedCamera, elapsed);
+		deffered.render(device, null, [terrain, house, water], camera, elapsed);
 		
-		if($('#freefly').is(':checked'))
-			deffered.render(device, null, [terrain, mesh], camera2, elapsed);
-		else
-			deffered.render(device, null, [terrain, mesh, mesh2], camera, elapsed);
-		
-		//var shader = engine.shaderManager.getShaderProgram(['basic_terrain_vs', 'basic_terrain_ps']);
-		//if(camera && shader)
-		//	terrain.render(device, camera, shader);
-
-		//var pos = Ultra.Math.Matrix4.getPosition(mesh.getMatrix());
-
-		//$('#posx').val(mesh2.clipped);
 	};
-	var canvas = document.getElementById("glcanvas");
+
+	//Configure Engine
 	var engine = new Ultra.Web3DEngine.Engine({
 		devices: {
 			//TODO: Fix support for multiple active devices
 			'WebGL' : {
 				device: 'WebGL',
-				target : canvas
+				target : document.getElementById("glcanvas")
 			}
 		}
 	});
 
-	var heightMapCtx;
-
+	//Create render system
 	var deffered = new Ultra.Web3DEngine.RenderSystem.Renderer.Deffered(engine);
 
+	//Executes when the engine is done setting up
 	engine.on('init', function(e, device) {
-		terrain = new Ultra.Web3DEngine.Terrain(engine);
-		terrain.buildPlanes(device);
-		terrain.addPatch('/assets/images/heightmap.png', device);
-		//terrain.addPatch('/assets/images/heightmap.png', device, [1, 0]);
-
+		//Enter Main Loop
 		engine.run();
 	});
 
+	//Load shader files
 	engine.shaderManager.loadFromFile('/assets/shaders/basic.xml');
 	engine.shaderManager.loadFromFile('/assets/shaders/deffered.xml');
 	engine.shaderManager.loadFromFile('/assets/shaders/water.xml');
 
+	//Create Terrain Patches
+	terrain = new Ultra.Web3DEngine.Terrain(engine);
+	terrain.buildPlanes();
+	terrain.addPatch('/assets/images/heightmap.png');
 
-	mesh = new Ultra.Web3DEngine.Objects.Mesh(engine);
-	mesh.createFromFile('/engine/model?name=Inn/Inn.3ds');
-	mesh.setShaders(['basic_light_vs', 'basic_light_ps']);
-
-	//mesh.setRotation([Ultra.Math.degToRad(90), 0, 0]);
-	mesh.setPosition([0, 6.5, -25]);
-
-	mesh2 = new Ultra.Web3DEngine.Objects.Plane(64, 64, 64);
-	mesh2.setRotation([-Ultra.Math.degToRad(90), 0, 0]);
-	//mesh2.setPosition([32, 5, -32]);
-	//TODO: Move to material loading instead ....
-
-	mesh2.setPosition([32, 5, -32]);
-
-	mesh2.envMap = engine.createRenderTarget(1024, 800, {
-		magFilter : Ultra.Consts.NearestFilter,
-		minFilter : Ultra.Consts.NearestFilter,
+	//Create the water plane for the terrain
+	water = new Ultra.Web3DEngine.Objects.Plane(64, 64, 16);
+	water.setRotation([-Ultra.Math.degToRad(90), 0, 0]);
+	water.setPosition([32, 5, -32]);
+	water.envMap = engine.createRenderTarget(512, 512, {
+		magFilter : Ultra.Consts.LinearFilter,
+		minFilter : Ultra.Consts.LinearFilter,
 		format : Ultra.Consts.RGBFormat,
 		type : Ultra.Consts.UByteType,
 		mipmap: false,
 		stencilBuffer: false
 	});
-	
-	mesh.textures['roof'] = engine.textureManager.getTexture('/assets/models/Inn/Roof.jpg');
-	mesh.textures['stone_wall'] = engine.textureManager.getTexture('/assets/models/Inn/Stone Wall2.jpg');
-	mesh.textures['stone'] = engine.textureManager.getTexture('/assets/models/Inn/Stone Wall-alpha.png');
-	mesh.textures['wood_floor'] = engine.textureManager.getTexture('/assets/models/Inn/Wood floor 2.png');
-	mesh.textures['plaster'] = engine.textureManager.getTexture('/assets/models/Inn/Plaster.jpg', { format : Ultra.Consts.RGBFormat });
-	mesh.textures['sign'] = engine.textureManager.getTexture('/assets/models/Inn/InnSign.jpg');
-	mesh.textures['sign2'] = engine.textureManager.getTexture('/assets/models/Inn/InnSign2.jpg');
-	mesh.textures['window2'] = engine.textureManager.getTexture('/assets/models/Inn/Window2.jpg');
-	mesh.textures['window'] = engine.textureManager.getTexture('/assets/models/Inn/Window.jpg');
-	mesh.textures['metal_rusted'] = engine.textureManager.getTexture('/assets/models/Inn/Rusted Metal.png');
-	mesh.textures['door'] = engine.textureManager.getTexture('/assets/models/Inn/Door3.jpg');
-	mesh.textures['water'] = engine.textureManager.getTexture('/assets/images/water.png');
-	mesh.textures['water_bump'] = engine.textureManager.getTexture('/assets/images/water.jpg');
 
+	//Load an Mesh and place it
+	house = new Ultra.Web3DEngine.Objects.Mesh(engine);
+	house.createFromFile('/engine/model?name=Inn/Inn.3ds');
+	house.setPosition([0, 6.5, -25]);
+
+	//Load textures for the mesh, should be done with materials ???
+	house.textures['roof'] = engine.textureManager.getTexture('/assets/models/Inn/Roof.jpg');
+	house.textures['stone_wall'] = engine.textureManager.getTexture('/assets/models/Inn/Stone Wall2.jpg');
+	house.textures['stone'] = engine.textureManager.getTexture('/assets/models/Inn/Stone Wall-alpha.png');
+	house.textures['wood_floor'] = engine.textureManager.getTexture('/assets/models/Inn/Wood floor 2.png');
+	house.textures['plaster'] = engine.textureManager.getTexture('/assets/models/Inn/Plaster.jpg', { format : Ultra.Consts.RGBFormat });
+	house.textures['sign'] = engine.textureManager.getTexture('/assets/models/Inn/InnSign.jpg');
+	house.textures['sign2'] = engine.textureManager.getTexture('/assets/models/Inn/InnSign2.jpg');
+	house.textures['window2'] = engine.textureManager.getTexture('/assets/models/Inn/Window2.jpg');
+	house.textures['window'] = engine.textureManager.getTexture('/assets/models/Inn/Window.jpg');
+	house.textures['metal_rusted'] = engine.textureManager.getTexture('/assets/models/Inn/Rusted Metal.png');
+	house.textures['door'] = engine.textureManager.getTexture('/assets/models/Inn/Door3.jpg');
+	house.textures['water'] = engine.textureManager.getTexture('/assets/images/water.png');
+	house.textures['water_bump'] = engine.textureManager.getTexture('/assets/images/water.jpg');
+
+	//Initialize InputHandler, binds and buffers all inputs to the canvas
 	var im = new Ultra.InputManager({ target : document.getElementById("glcanvas") });
 
-	var freefly = false;
+	//Setup the Main FirstPerson Camera, will use input from the input manager
 	camera = new Ultra.Web3DEngine.Cameras.FirstPersonCamera(im, 45, 1024 / 800, 0.1, 1000.0);
-	
-	//Ultra.Math.degToRad(90)
 	camera.setRotation([0, 0.0, 0.0]);
 	camera.setPosition([0, -20, -40]);
 
-	camera2 = new Ultra.Web3DEngine.Cameras.FirstPersonCamera(null, 45, 1024 / 800, 0.1, 1000.0);
-	//camera2.setRotation([0.0, 0.0, 0.0]);
-	//camera2.setPosition([0, 0, 0]);
+	//Setup the reflection / perspective camera.. used for the water surface
+	reflectedCamera = new Ultra.Web3DEngine.Cameras.PerspectiveCamera(45, 1024 / 800, 0.1, 1000.0);
 
-	/*
+	//Load the heightmap to be able to lookup height data to position the camera
+	var heightMapCtx;
 	var heightMap = engine.fileManager.loadFile('/assets/images/heightmap.png');
 	heightMap.on('load', function(e, file) {
 		var img = new Image();
 		img.onload = function(e) {
 			heightMapCtx = document.createElement("canvas");
+			//heightMapCtx = $('#heightmap')[0];
 			heightMapCtx.width = img.width;
 			heightMapCtx.height = img.height;
 			heightMapCtx = heightMapCtx.getContext("2d");
@@ -225,28 +150,29 @@ function (Ultra) {
 		img.src = window.URL.createObjectURL(file.data);
 	});
 
-	
+	//On each frame / tick, position the camera on the correct height
 	engine.on('tick', function() {
-		if(!heightMapCtx || freefly)
+		if(!heightMapCtx || $('#freefly').is(':checked'))
 			return;
 
-		var pos = camera.pos;
+		var pos = camera.getPosition();
+		var data = heightMapCtx.getImageData(1024 - (pos[0] + 64) / 127 * 1024, (pos[2] + 64) / 127 * 1024, 1, 1).data;
 
-		var data = heightMapCtx.getImageData(pos[0] / 127 * 1024, 1024 - pos[1] / 127 * 1024, 3, 3).data;
-
-		$('#posx').val(pos[0] / 127 * 1024);
-		$('#posy').val(pos[1] / 127 * 1024);
-		$('#posz').val(data[0] / 255 * 25 + 2);
-		camera.setPos([pos[0], pos[1], data[0] / 255 * 25 + 1]);
+		camera.setPosition([pos[0], -(data[0] / 255 * 25 + 2), pos[2]]);
 	});
-	*/
 
+	//Move camera on tick, 
 	engine.on('tick', camera.tick.bind(camera));
+	//Bind the main render function
 	engine.on('tick', onTick);
 
+	//Initialize the engine
 	engine.init();
+
+	//Enable capture of input
 	im.enable();
 
+	//Toggle wireframe rendering
 	$('#wireframe').change(function() {
 		if($('#wireframe').is(':checked'))
 			engine.getRenderDevice('WebGL').setConfig('wireframe', true);
@@ -254,24 +180,12 @@ function (Ultra) {
 			engine.getRenderDevice('WebGL').setConfig('wireframe', false);
 	});
 
+	//Tells the engine where to print the current FPS
 	engine.setConfig('renderFPS', $('#FPS')[0]);
-
-	$('#freefly').change(function() {
-		if($('#freefly').is(':checked')) {
-			freefly = true;
-			camera.speed = 200;
-		} else {
-			freefly = false;
-			camera.speed = 50;
-		}
-	});
 
 	var con = new Ultra.Console($('#glcanvas'), engine);
 
-	$('#posx, #posy, #posz').change(function() {
-		mesh.setPosition([parseFloat($('#posx').val()), parseFloat($('#posy').val()), parseFloat($('#posz').val())]);
-	});
-
+	//TODO: Enable LUA scripting
 	/*
 	var func = lua_parser.parse('function printLn() \n local p = Ultra.create(); print(p) \n end');
 

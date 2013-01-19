@@ -26,9 +26,13 @@ define([
 			};
 	})();
 
-	Ultra.Web3DEngine.TRIANGLE_STRIP = 1;
-	Ultra.Web3DEngine.TRIANGLES = 2;
-	Ultra.Web3DEngine.POINTS = 3;
+	Ultra.Consts.add('TRIANGLE_STRIP');
+	Ultra.Consts.add('TRIANGLES');
+	Ultra.Consts.add('POINTS');
+
+	//Ultra.Web3DEngine.TRIANGLE_STRIP = 1;
+	//Ultra.Web3DEngine.TRIANGLES = 2;
+	//Ultra.Web3DEngine.POINTS = 3;
 
 	//Interface for the devices, this is to make sure all functions exists for the device
 	//to work correctly

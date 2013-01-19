@@ -148,7 +148,7 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra_engi
 			shader.setParam('aTextureCoord', this.data[device.getName()].uvBuffer);
 			//this.engine.getRenderDevice().gl.uniformMatrix4fv(shader.params.uMMatrix.loc, false, this.matrix);
 
-			device.drawIndex(this.data[device.getName()].iBuffer, shader, Ultra.Web3DEngine.TRIANGLES);
+			device.drawIndex(this.data[device.getName()].iBuffer, shader, Ultra.Consts.TRIANGLES);
 		},
 		setShaders: function(shaders) {
 			this.shaders = shaders;

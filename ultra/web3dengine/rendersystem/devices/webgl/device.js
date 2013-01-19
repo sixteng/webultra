@@ -444,11 +444,11 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 			if(this.config.wireframe === true && opts.wireframe !== false) {
 				this.gl.drawElements(this.gl.LINES, iBuffer.numItems, this.gl.UNSIGNED_SHORT, 0);
 			} else {
-				if(type == Ultra.Web3DEngine.TRIANGLE_STRIP)
+				if(type == Ultra.Consts.TRIANGLE_STRIP)
 					this.gl.drawElements(this.gl.TRIANGLE_STRIP, iBuffer.numItems, this.gl.UNSIGNED_SHORT, 0);
-				else if(type == Ultra.Web3DEngine.TRIANGLES)
+				else if(type == Ultra.Consts.TRIANGLES)
 					this.gl.drawElements(this.gl.TRIANGLES, iBuffer.numItems, this.gl.UNSIGNED_SHORT, 0);
-				else if(type == Ultra.Web3DEngine.POINTS)
+				else if(type == Ultra.Consts.POINTS)
 					this.gl.drawElements(this.gl.POINTS, iBuffer.numItems, this.gl.UNSIGNED_SHORT, 0);
 			}
 		},
