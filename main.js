@@ -12,7 +12,7 @@ requirejs.config({
 requirejs([
 	'ultra/ultra',
 	'ultra_engine/engine',
-	'ultra_engine/cameras/base',
+	'ultra_engine/cameras/firstperson',
 	'ultra_engine/resources/texture',
 	'ultra_engine/objects/mesh',
 	'ultra_engine/objects/terrain_mesh',

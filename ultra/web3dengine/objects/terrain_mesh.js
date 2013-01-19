@@ -79,6 +79,7 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra/comm
 
 			shader.setParam('uPMatrix', camera.getProjectionMatrix());
 			shader.setParam('uMVMatrix', camera.getMatrix());
+			shader.setParam('uMMMatrix', this.getMatrix());
 
 			shader.setParam('planePos', [this.pos[0], this.pos[1]]);
 			shader.setParam('planeSize', [size, size]);
