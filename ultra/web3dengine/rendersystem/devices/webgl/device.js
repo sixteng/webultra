@@ -72,6 +72,7 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 		}
 
 		this.gl.getExtension('OES_texture_float');
+		this.gl.getExtension('OES_standard_derivatives');
 		this.gl.clearColor(this.config.clearColor[0], this.config.clearColor[1], this.config.clearColor[2], this.config.clearColor[3]);
 		this.gl.enable(this.gl.DEPTH_TEST);
 		this.uid = _.uniqueId('webgl');
@@ -239,17 +240,17 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 
 			return true;
 		},
-		setTextureParams: function(config, isPowerTwo) {
+		setTextureParams: function(type, config, isPowerTwo) {
 			if(isPowerTwo) {
-				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.convEngineFormat(config.wrap_s));
-				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.convEngineFormat(config.wrap_t));
+				this.gl.texParameteri(type, this.gl.TEXTURE_WRAP_S, this.convEngineFormat(config.wrap_s));
+				this.gl.texParameteri(type, this.gl.TEXTURE_WRAP_T, this.convEngineFormat(config.wrap_t));
 
-				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.convEngineFormat(config.magFilter));
-				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.convEngineFormat(config.minFilter));
+				this.gl.texParameteri(type, this.gl.TEXTURE_MAG_FILTER, this.convEngineFormat(config.magFilter));
+				this.gl.texParameteri(type, this.gl.TEXTURE_MIN_FILTER, this.convEngineFormat(config.minFilter));
 			
 			} else {
-				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
-				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+				this.gl.texParameteri(type, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+				this.gl.texParameteri(type, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
 
 				var magFilter = this.gl.LINEAR;
 				if(config.magFilter == Ultra.Consts.NearestFilter || config.magFilter == Ultra.Consts.NearestMipMapNearestFilter || config.magFilter == Ultra.Consts.NearestMipMapLinearFilter)
@@ -259,37 +260,44 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 				if(config.minFilter == Ultra.Consts.NearestFilter || config.minFilter == Ultra.Consts.NearestMipMapNearestFilter || config.minFilter == Ultra.Consts.NearestMipMapLinearFilter)
 					minFilter = this.gl.NEAREST;
 
-				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, magFilter);
-				this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, minFilter);
+				this.gl.texParameteri(type, this.gl.TEXTURE_MAG_FILTER, magFilter);
+				this.gl.texParameteri(type, this.gl.TEXTURE_MIN_FILTER, minFilter);
 			}
 
 			if(isPowerTwo && config.mipmap !== false)
-				this.gl.generateMipmap(this.gl.TEXTURE_2D);
+				this.gl.generateMipmap(type);
 		},
 		createTexture: function(src, config) {
+			var texture = this.gl.createTexture();
+			var isPowerTwo = false;
+
 			if(!this.gl) return null;
 
-			//if (!this.isPowerOfTwo(src.width) || !this.isPowerOfTwo(src.height)) {
-			//	var canvas = document.createElement("canvas");
-			//	canvas.width = this.nextHighestPowerOfTwo(src.width);
-			//	canvas.height = this.nextHighestPowerOfTwo(src.height);
-			//	var ctx = canvas.getContext("2d");
-			//	ctx.drawImage(src, 0, 0, src.width, src.height);
-				//src = canvas;
-			//}
+			if(_.isArray(src)) {
+				//Cube Texture
+				if(src.length != 6) return null;
 
-			var isPowerTwo = this.isPowerOfTwo(src.width) && this.isPowerOfTwo(src.height);
+				isPowerTwo = this.isPowerOfTwo(src[0].width) && this.isPowerOfTwo(src[0].height);
+				this.gl.bindTexture(this.gl.TEXTURE_CUBE_MAP, texture);
+				this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true);
 
-			var texture = this.gl.createTexture();
-			this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true);
+				for(var i = 0; i < src.length; i++) {
+					this.gl.texImage2D(this.gl.TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, this.convEngineFormat(config.format), this.convEngineFormat(config.format), this.convEngineFormat(config.type), src[i]);
+				}
+				
+				this.setTextureParams(this.gl.TEXTURE_CUBE_MAP, config, isPowerTwo);
+				this.gl.bindTexture(this.gl.TEXTURE_CUBE_MAP, null);
+			} else {
+				isPowerTwo = this.isPowerOfTwo(src.width) && this.isPowerOfTwo(src.height);
 
-			this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+				this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+				this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true);
+				this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.convEngineFormat(config.format), this.convEngineFormat(config.format), this.convEngineFormat(config.type), src);
 
-			this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.convEngineFormat(config.format), this.convEngineFormat(config.format), this.convEngineFormat(config.type), src);
+				this.setTextureParams(this.gl.TEXTURE_2D, config, isPowerTwo);
 
-			this.setTextureParams(config, isPowerTwo);
-
-			this.gl.bindTexture(this.gl.TEXTURE_2D, null);
+				this.gl.bindTexture(this.gl.TEXTURE_2D, null);
+			}
 
 			return texture;
 		},
@@ -342,7 +350,7 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 
 			this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.convEngineFormat(config.format), frameBuffer.width, frameBuffer.height, 0, this.convEngineFormat(config.format), this.convEngineFormat(config.type), null);
 
-			this.setTextureParams(config, isPowerTwo);
+			this.setTextureParams(this.gl.TEXTURE_2D, config, isPowerTwo);
 
 			var renderbuffer;
 

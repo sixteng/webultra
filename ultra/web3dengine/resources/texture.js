@@ -3,9 +3,6 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra/common/indexed_db', 'ultra_
 		this.id = _.uniqueId('file');
 		this.data = {};
 
-		//TODO: Maybe add default settings to texture ???
-		//TODO: Implement whole config chain, MAG_FILTER, FLIP, etc
-
 		if(!config)
 			config = {};
 
@@ -23,6 +20,46 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra/common/indexed_db', 'ultra_
 	};
 
 	_.extend(Ultra.Resources.Texture.prototype, Jvent.prototype);
+
+	Ultra.Resources.TextureCube = function(textures, config) {
+		this.id = _.uniqueId('file');
+		this.textures = textures;
+		this.data = {};
+
+		if(!config)
+			config = {};
+
+		_.defaults(config, {
+			format : Ultra.Consts.RGBAFormat,
+			type : Ultra.Consts.UByteType,
+			magFilter : Ultra.Consts.LinearFilter,
+			minFilter : Ultra.Consts.LinearMipMapLinearFilter,
+			wrap_s : Ultra.Consts.RepeatWrap,
+			wrap_t : Ultra.Consts.RepeatWrap
+		});
+
+		this.config = config;
+		this.textures_loaded = 0;
+		this.collection = {};
+
+		for(var i = 0; i < this.textures.length; i++)
+			this.textures[i].on('load', this.onTextureLoaded.bind(this));
+
+	};
+
+	_.extend(Ultra.Resources.TextureCube.prototype, Jvent.prototype, {
+		onTextureLoaded: function() {
+			this.textures_loaded++;
+			if(this.textures_loaded != this.textures.length)
+				return;
+
+			this.data.raw = [];
+			for(var i = 0; i < this.textures.length; i++)
+				this.data.raw.push(this.textures[i].data.raw);
+
+			console.log('Cube Texture Loaded');
+		}
+	});
 
 	Ultra.Consts.add('RGBFormat');
 	Ultra.Consts.add('RGBAFormat');
@@ -45,6 +82,13 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra/common/indexed_db', 'ultra_
 	};
 
 	_.extend(Ultra.Resources.TextureManager.prototype, {
+		getTextureCube : function(images, config) {
+			var tex = [];
+			for(var i = 0; i < images.length; i++)
+				tex.push(this.getTexture(images[i], config));
+
+			return new Ultra.Resources.TextureCube(tex, config);
+		},
 		getTexture : function(name, config) {
 
 			var key = _.reduce(config, function(key, param, value) { return key += '_' + param + '=' + value; }, name);

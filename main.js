@@ -19,6 +19,8 @@ requirejs([
 	'ultra_engine/rendersystem/renderer/deffered',
 	'ultra/common/console',
 	'ultra_engine/objects/plane',
+	'ultra_engine/objects/box',
+	'ultra_engine/objects/skybox',
 	'ultra/common/math'],
 function (Ultra) {
     var rCamera = mat4.create();
@@ -43,7 +45,8 @@ function (Ultra) {
 		mat4.multiply(rCamera, camera.getMatrix(), mRef);
 		mat4.translate(rCamera, rCamera, [0, 2 * clipPlane[3], 0]);
 
-		reflectedCamera.matrix = rCamera;
+		reflectedCamera.setMatrix(rCamera);
+		//reflectedCamera.matrix = rCamera;
 		reflectedCamera.updateFustrum();
 
 		water.envCamera = reflectedCamera;
@@ -54,9 +57,9 @@ function (Ultra) {
 		reflectedCamera.reflect = true;
 
 		//Render reflected camera / env map
-		deffered.render(device, water.envMap, [terrain, house], reflectedCamera, elapsed);
-		deffered.render(device, null, [terrain, house, water], camera, elapsed);
-		
+		deffered.render(device, water.envMap, [terrain, house, box, skybox], reflectedCamera, elapsed);
+		deffered.render(device, null, [terrain, house, box, skybox, water], camera, elapsed);
+
 	};
 
 	//Configure Engine
@@ -74,7 +77,7 @@ function (Ultra) {
 	var deffered = new Ultra.Web3DEngine.RenderSystem.Renderer.Deffered(engine);
 
 	//Executes when the engine is done setting up
-	engine.on('init', function(e, device) {
+	engine.on('init', function(e, device) { 
 		//Enter Main Loop
 		engine.run();
 	});
@@ -88,6 +91,7 @@ function (Ultra) {
 	terrain = new Ultra.Web3DEngine.Terrain(engine);
 	terrain.buildPlanes();
 	terrain.addPatch('/assets/images/heightmap.png');
+	//terrain.addPatch('/assets/images/heightmap.png', [127, 0]);
 
 	//Create the water plane for the terrain
 	water = new Ultra.Web3DEngine.Objects.Plane(64, 64, 16);
@@ -122,6 +126,14 @@ function (Ultra) {
 	house.textures['water'] = engine.textureManager.getTexture('/assets/images/water.png');
 	house.textures['water_bump'] = engine.textureManager.getTexture('/assets/images/water.jpg');
 
+	box = new Ultra.Web3DEngine.Objects.Box(10, 10);
+	box.setPosition([10, 7, -10]);
+	box.setScale([5, 5, 5]);
+	box.tex = house.textures['sign'];
+
+	var skybox = new Ultra.Web3DEngine.Objects.SkyBox(engine);
+	skybox.create(['/assets/images/skybox/px.jpg', '/assets/images/skybox/nx.jpg', '/assets/images/skybox/ny.jpg', '/assets/images/skybox/py.jpg', '/assets/images/skybox/pz.jpg', '/assets/images/skybox/nz.jpg']);
+	skybox.setPosition([0, 0.1, 0]);
 	//Initialize InputHandler, binds and buffers all inputs to the canvas
 	var im = new Ultra.InputManager({ target : document.getElementById("glcanvas") });
 
@@ -184,6 +196,10 @@ function (Ultra) {
 	engine.setConfig('renderFPS', $('#FPS')[0]);
 
 	var con = new Ultra.Console($('#glcanvas'), engine);
+
+	$('#posx, #posy, #posz').change(function() {
+		box.setPosition([parseFloat($('#posx').val()), parseFloat($('#posy').val()), parseFloat($('#posz').val())]);
+	});
 
 	//TODO: Enable LUA scripting
 	/*

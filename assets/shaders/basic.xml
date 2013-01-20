@@ -1,4 +1,43 @@
 <shaders>
+	<shader name="skybox_vs" type="vertex">
+		<src target="webgl">
+			attribute vec3 aVertexPosition;
+
+		    uniform mat4 uMVMatrix;
+		    uniform mat4 uMMatrix;
+		    uniform mat4 uPMatrix;
+
+		    varying vec4 vPos;
+
+		    void main(void) {
+		        vPos = vec4(aVertexPosition, 1.0);
+		        //vPos = vec4(aVertexPosition, 1.0);
+		        gl_Position = uPMatrix * uMVMatrix * uMMatrix * vec4(aVertexPosition, 1.0);
+		    }
+		</src>
+		<params>
+			<param name="uMVMatrix" type="mat4" />
+			<param name="uMMatrix" type="mat4" />
+			<param name="uPMatrix" type="mat4" />
+			<param name="aVertexPosition" type="float3" />
+		</params>
+	</shader>
+	<shader name="skybox_ps" type="pixel">
+		<src target="webgl">
+			precision mediump float;
+
+		    uniform samplerCube uSampler;
+		    varying vec4 vPos;
+
+		    void main(void) {
+		    	
+        		gl_FragColor = textureCube( uSampler, vec3( vPos.x, vPos.yz ) );
+		    }
+		</src>
+		<params>
+			<param name="uSampler" type="texcube" />
+		</params>
+	</shader>
 	<shader name="basic_debug_normals_vs" type="vertex">
 		<src target="webgl">
 			attribute vec3 aVertexPosition;
@@ -168,6 +207,8 @@
 	<shader name="basic_terrain_vs" type="vertex">
 		<src target="webgl">
 			attribute vec3 aVertexPosition;
+			attribute vec2 aTextureCoord;
+
 		    uniform mat4 uMVMatrix;
 		    uniform mat4 uPMatrix;
 
@@ -182,16 +223,16 @@
         	varying vec3 eyeVec;
 
 		    void main(void) {
-				uv = (aVertexPosition.xy + (planeSize * planePos)) / (planeSize);
-				vec4 vColor = texture2D(uSampler, uv);
+				uv = aTextureCoord;
+				vec4 vColor = texture2D(uSampler, aTextureCoord);
 
 				vec2 offset = vec2(1.0, 1.0) / planeSize;
 				float s11 = vColor.x;
 
-				float s01 = texture2D(uSampler, uv + vec2(-offset.x, 0.0)).x * 25.0;
-				float s21 = texture2D(uSampler, uv + vec2(offset.x, 0.0)).x * 25.0;
-				float s10 = texture2D(uSampler, uv + vec2(0.0, -offset.x)).x * 25.0;
-				float s12 = texture2D(uSampler, uv + vec2(0.0, offset.x)).x * 25.0;
+				float s01 = texture2D(uSampler, aTextureCoord + vec2(-offset.x, 0.0)).x * 25.0;
+				float s21 = texture2D(uSampler, aTextureCoord + vec2(offset.x, 0.0)).x * 25.0;
+				float s10 = texture2D(uSampler, aTextureCoord + vec2(0.0, -offset.x)).x * 25.0;
+				float s12 = texture2D(uSampler, aTextureCoord + vec2(0.0, offset.x)).x * 25.0;
 				
 				vec3 va = normalize(vec3(2.0, s21 - s01, 0.0));
 				vec3 vb = normalize(vec3(0.0, s12 - s10, -2.0));
@@ -199,7 +240,7 @@
 				vNormal = vec4( cross(va,vb), s11 );
 
 				float height = vColor.x * 25.0;
-				pos = uMVMatrix * vec4(aVertexPosition.x + (planeSize.x * planePos.x), height, -(aVertexPosition.y + (planeSize.y * planePos.y)), 1.0);
+				pos = uMVMatrix * vec4(aVertexPosition.x, height, aVertexPosition.y, 1.0);
 
   				eyeVec = -vec3(uMVMatrix * vec4(aVertexPosition, 1.0));
 
@@ -210,45 +251,35 @@
 			<param name="uMVMatrix" type="mat4" />
 			<param name="uPMatrix" type="mat4" />
 			<param name="aVertexPosition" type="float3" />
+			<param name="aTextureCoord" type="float2" />
 			<param name="uSampler" type="tex2d" />
 			<param name="planeSize" type="float2" />
-			<param name="planePos" type="float2" />
 		</params>
 	</shader>
 	<shader name="basic_terrain_debug_vs" type="vertex">
 		<src target="webgl">
 			attribute vec3 aVertexPosition;
+			attribute vec2 aTextureCoord;
+
 		    uniform mat4 uMVMatrix;
 		    uniform mat4 uPMatrix;
 
         	uniform vec2 planeSize;
-        	uniform vec2 planePos;
 
         	uniform float nScale;
         	uniform sampler2D uSampler;
 
 		    void main(void) {
-				vec2 uv = (aVertexPosition.xy + (planeSize * planePos)) / (planeSize);
-				vec4 vColor = texture2D(uSampler, uv);
+				//vec2 uv = (aVertexPosition.xy + (planeSize * planePos)) / (planeSize);
+				vec4 vColor = texture2D(uSampler, aTextureCoord);
 
 				float s11 = vColor.x;
 				vec2 offset = vec2(1.0, 1.0) / planeSize;
 
-				/*
-				vec2 offuv = uv + vec2(-offset.x, 0.0);
-				float s01 = texture2D(uSampler, offuv).x * 25.0;
-				offuv = uv + vec2(offset.x, 0.0);
-				float s21 = texture2D(uSampler, offuv).x * 25.0;
-				offuv = uv + vec2(0.0, -offset.x);
-				float s10 = texture2D(uSampler, offuv).x * 25.0;
-				offuv = uv + vec2(0.0, offset.x);
-				float s12 = texture2D(uSampler, offuv).x * 25.0;
-				*/
-
-				float s01 = texture2D(uSampler, uv + vec2(-offset.x, 0.0)).x * 25.0;
-				float s21 = texture2D(uSampler, uv + vec2(offset.x, 0.0)).x * 25.0;
-				float s10 = texture2D(uSampler, uv + vec2(0.0, -offset.x)).x * 25.0;
-				float s12 = texture2D(uSampler, uv + vec2(0.0, offset.x)).x * 25.0;
+				float s01 = texture2D(uSampler, aTextureCoord + vec2(-offset.x, 0.0)).x * 25.0;
+				float s21 = texture2D(uSampler, aTextureCoord + vec2(offset.x, 0.0)).x * 25.0;
+				float s10 = texture2D(uSampler, aTextureCoord + vec2(0.0, -offset.x)).x * 25.0;
+				float s12 = texture2D(uSampler, aTextureCoord + vec2(0.0, offset.x)).x * 25.0;
 				
 				vec3 va = normalize(vec3(2.0, s21 - s01, 0.0));
 				vec3 vb = normalize(vec3(0.0, s12 - s10, -2.0));
@@ -256,22 +287,22 @@
 				vec4 vNormal = vec4( cross(va,vb), s11 );
 
 				float height = vColor.x * 25.0;
-				vec4 pos = vec4(aVertexPosition.x + (planeSize.x * planePos.x), height, -(aVertexPosition.y + (planeSize.y * planePos.y)), 1.0);
+				vec4 pos = vec4(aVertexPosition.x, height, aVertexPosition.y, 1.0);
 
 				vec3 offPos = pos.xyz + vNormal.xyz * nScale;
 				pos = uPMatrix * uMVMatrix * vec4(offPos, 1.0);
 
 		        gl_Position = pos;
-		        gl_PointSize = 2.0;
+		        gl_PointSize = 1.0;
 		    }
 		</src>
 		<params>
 			<param name="uMVMatrix" type="mat4" />
 			<param name="uPMatrix" type="mat4" />
 			<param name="aVertexPosition" type="float3" />
+			<param name="aTextureCoord" type="float2" />
 			<param name="uSampler" type="tex2d" />
 			<param name="planeSize" type="float2" />
-			<param name="planePos" type="float2" />
 			<param name="nScale" type="float" />
 		</params>
 	</shader>

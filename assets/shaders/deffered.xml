@@ -49,7 +49,7 @@
 
         	//Whont add any getDiffuse(), getSpecular() etc.. as it dosent need em, write logic for this in shader manager
         	vec3 getNormal() {
-        		return normalize( vNormal );
+        		return vNormal;
         	}
 
 		    void main(void) {
@@ -136,33 +136,30 @@
 			uniform mat4 uMVMatrix;
 			uniform mat4 uMMatrix;
 		    uniform mat4 uPMatrix;
+
 			attribute vec3 aVertexPosition;
+			attribute vec2 aTextureCoord;
+
 		    uniform sampler2D uSampler;
         	uniform vec2 planeSize;
-        	uniform vec2 planePos;
 
         	varying vec4 vPos;
         	varying vec3 vNormal;
 
-        	//shader var / node result between functions, getPosition, getNormal 
-        	vec2 shaderdUV;
-
         	vec4 getPosition() {
-        		shaderdUV = (aVertexPosition.xy + (planeSize * planePos) + (planeSize / 2.0)) / (planeSize);
-
-        		vec4 vColor = texture2D(uSampler, shaderdUV);
+        		vec4 vColor = texture2D(uSampler, aTextureCoord);
 				float height = vColor.x * 25.0;
 				
-				return vec4(aVertexPosition.x + (planeSize.x * planePos.x), height, aVertexPosition.y + (planeSize.y * planePos.y), 1.0);
+				return vec4(aVertexPosition.x, height, aVertexPosition.y, 1.0);
         	}
 
         	vec3 getNormal() {
         		vec2 offset = vec2(1.0, 1.0) / planeSize;
 
-				float s01 = texture2D(uSampler, shaderdUV + vec2(-offset.x, 0.0)).x * 25.0;
-				float s21 = texture2D(uSampler, shaderdUV + vec2(offset.x, 0.0)).x * 25.0;
-				float s10 = texture2D(uSampler, shaderdUV + vec2(0.0, -offset.x)).x * 25.0;
-				float s12 = texture2D(uSampler, shaderdUV + vec2(0.0, offset.x)).x * 25.0;
+				float s01 = texture2D(uSampler, aTextureCoord + vec2(-offset.x, 0.0)).x * 25.0;
+				float s21 = texture2D(uSampler, aTextureCoord + vec2(offset.x, 0.0)).x * 25.0;
+				float s10 = texture2D(uSampler, aTextureCoord + vec2(0.0, -offset.x)).x * 25.0;
+				float s12 = texture2D(uSampler, aTextureCoord + vec2(0.0, offset.x)).x * 25.0;
 				
 				vec3 va = normalize(vec3(2.0, s21 - s01, 0.0));
 				vec3 vb = normalize(vec3(0.0, s12 - s10, -2.0));
@@ -185,9 +182,9 @@
 			<param name="uMMatrix" type="mat4" />
 			<param name="uPMatrix" type="mat4" />
 			<param name="aVertexPosition" type="float3" />
+			<param name="aTextureCoord" type="float2" />
 			<param name="uSampler" type="tex2d" />
 			<param name="planeSize" type="float2" />
-			<param name="planePos" type="float2" />
 		</params>
 	</shader>
 	<shader name="deffered_normal_terrain_ps" type="pixel">
@@ -216,27 +213,24 @@
 			uniform mat4 uMVMatrix;
 			uniform mat4 uMMatrix;
 			uniform mat4 uPMatrix;
+
 			attribute vec3 aVertexPosition;
+			attribute vec2 aTextureCoord;
+
 			uniform sampler2D uSampler;
-        	uniform vec2 planeSize;
-        	uniform vec2 planePos;
 
         	varying vec2 vUV;
 
         	//shader var / node result between functions, getPosition, getNormal 
-        	vec2 shaderdUV;
-
         	vec4 getPosition() {
-        		shaderdUV = (aVertexPosition.xy + (planeSize * planePos) + (planeSize / 2.0)) / (planeSize);
-
-        		vec4 vColor = texture2D(uSampler, shaderdUV);
+        		vec4 vColor = texture2D(uSampler, aTextureCoord);
 				float height = vColor.x * 25.0;
 				
-				return vec4(aVertexPosition.x + (planeSize.x * planePos.x), height, aVertexPosition.y + (planeSize.y * planePos.y), 1.0);
+				return vec4(aVertexPosition.x, height, aVertexPosition.y, 1.0);
         	}
 
         	vec2 getUVS () {
-        		return shaderdUV;
+        		return aTextureCoord;
         	}
 
 		    void main(void) {
@@ -253,9 +247,8 @@
 			<param name="uMMatrix" type="mat4" />
 			<param name="uPMatrix" type="mat4" />
 			<param name="aVertexPosition" type="float3" />
+			<param name="aTextureCoord" type="float2" />
 			<param name="uSampler" type="tex2d" />
-			<param name="planeSize" type="float2" />
-			<param name="planePos" type="float2" />
 		</params>
 	</shader>
 	<shader name="deffered_color_terrain_ps" type="pixel">
@@ -404,7 +397,7 @@
 		    	vec4 normalDepth = texture2D( normalSampler, texCoord );
 		    	float z = normalDepth.w;
 
-		    	//if ( z == 0.0 ) discard;
+		    	if ( z == 0.0 ) discard;
 
 		    	vec2 xy = texCoord * 2.0 - 1.0;
 
@@ -453,6 +446,246 @@
 			<param name="viewWidth" type="float" />
 			<param name="matProjInverse" type="mat4" />
 			<param name="lightVector" type="float3" />
+			<param name="normalSampler" type="tex2d" />
+			<param name="colorSampler" type="tex2d" />
+		</params>
+	</shader>
+	<shader name="deffered_spotlight_vs" type="vertex">
+		<src target="webgl">
+			attribute vec3 aVertexPosition;
+
+			vec4 getPosition() {
+				return vec4( sign( aVertexPosition.xy ), 0.0, 1.0 );
+			}
+
+		    void main(void) {
+		    	vec4 pos = getPosition();
+		    	gl_Position = pos;
+		    }
+		</src>
+		<params>
+			<param name="aVertexPosition" type="float3" />
+		</params>
+	</shader>
+	<shader name="deffered_spotlight_ps" type="pixel">
+		<src target="webgl">
+			precision mediump float;
+
+			uniform float viewHeight;
+			uniform float viewWidth;
+			uniform mat4 matProjInverse;
+			uniform vec3 lightPos;
+			uniform vec3 lightDir;
+			uniform float lightAngle;
+
+			uniform sampler2D normalSampler;
+			uniform sampler2D colorSampler;
+
+			//Function used by deffered render, will be in the base shader for deffered color pixel shader
+			vec3 float_to_vec3( float data ) {
+				vec3 uncompressed;
+				uncompressed.x = fract( data );
+				float zInt = floor( data / 255.0 );
+				uncompressed.z = fract( zInt / 255.0 );
+				uncompressed.y = fract( floor( data - ( zInt * 255.0 ) ) / 255.0 );
+				return uncompressed;
+			}
+			
+		    void main(void) {
+		    	vec2 texCoord = gl_FragCoord.xy / vec2( viewWidth, viewHeight );
+		    	vec4 normalDepth = texture2D( normalSampler, texCoord );
+		    	float z = normalDepth.w;
+
+		    	if ( z == 0.0 ) discard;
+
+		    	vec2 xy = texCoord * 2.0 - 1.0;
+
+		    	vec4 vertexPositionProjected = vec4( xy, z, 1.0 );
+				vec4 vertexPositionVS = matProjInverse * vertexPositionProjected;
+				vertexPositionVS.xyz /= vertexPositionVS.w;
+				vertexPositionVS.w = 1.0;
+
+				vec3 normal = normalize(normalDepth.xyz * 2.0 - 1.0);
+
+				vec4 colorMap = texture2D( colorSampler, texCoord );
+
+				vec3 albedo = float_to_vec3( abs( colorMap.x ) );
+				vec3 specularColor = float_to_vec3( abs( colorMap.y ) );
+				float shininess = abs( colorMap.z );
+				float wrapAround = sign( colorMap.z );
+				float additiveSpecular = sign( colorMap.y );
+
+				vec3 lightVector = normalize( lightPos.xyz - vertexPositionVS.xyz );
+				float rho = dot( lightDir, lightVector );
+				float rhoMax = cos( lightAngle * 0.5 );
+
+				if ( rho <= rhoMax ) discard;
+
+				float theta = rhoMax + 0.0001;
+				float phi = rhoMax + 0.05;
+				float falloff = 4.0;
+
+				float spot = 0.0;
+
+				if ( rho >= phi ) {
+					spot = 1.0;
+				} else if ( rho <= theta ) {
+					spot = 0.0;
+				} else {
+					spot = pow( ( rho - theta ) / ( phi - theta ), falloff );
+				}
+
+				float dotProduct = dot( normal, lightVector );
+				float diffuseFull = max( dotProduct, 0.0 );
+
+				vec3 diffuse;
+
+				if ( wrapAround < 0.0 ) {
+					// wrap around lighting
+					float diffuseHalf = max( 0.5 * dotProduct + 0.5, 0.0 );
+
+					const vec3 wrapRGB = vec3( 1.0, 1.0, 1.0 );
+					diffuse = mix( vec3( diffuseFull ), vec3( diffuseHalf ), wrapRGB );
+
+				} else {
+					//simple lighting
+					diffuse = vec3( diffuseFull );
+				}
+
+				diffuse *= spot;
+				const float attenuation = 1.0;
+
+				vec3 light = vec3(1.0, 1.0, 1.0);
+
+				gl_FragColor = vec4( light * ( albedo * diffuse ), attenuation );
+		    }
+		</src>
+		<params>
+			<param name="viewHeight" type="float" />
+			<param name="viewWidth" type="float" />
+			<param name="matProjInverse" type="mat4" />
+			<param name="lightPos" type="float3" />
+			<param name="lightDir" type="float3" />
+			<param name="lightAngle" type="float" />
+			<param name="normalSampler" type="tex2d" />
+			<param name="colorSampler" type="tex2d" />
+		</params>
+	</shader>
+	<shader name="deffered_pointlight_vs" type="vertex">
+		<src target="webgl">
+			attribute vec3 aVertexPosition;
+
+			uniform mat4 uMVMatrix;
+		    uniform mat4 uMMatrix;
+		    uniform mat4 uPMatrix;
+
+			vec4 getPosition() {
+				return vec4(aVertexPosition, 1.0);
+			}
+
+		    void main(void) {
+		    	vec4 pos = getPosition();
+
+		    	pos = uPMatrix * uMVMatrix * uMMatrix * pos;
+
+		    	gl_Position = pos;
+		    }
+		</src>
+		<params>
+			<param name="aVertexPosition" type="float3" />
+			<param name="uMVMatrix" type="mat4" />
+			<param name="uMMatrix" type="mat4" />
+			<param name="uPMatrix" type="mat4" />
+		</params>
+	</shader>
+	<shader name="deffered_pointlight_ps" type="pixel">
+		<src target="webgl">
+			precision mediump float;
+
+			uniform float viewHeight;
+			uniform float viewWidth;
+			uniform mat4 matProjInverse;
+			uniform float lightRadius;
+			uniform vec3 lightPos;
+
+			uniform sampler2D normalSampler;
+			uniform sampler2D colorSampler;
+
+			//Function used by deffered render, will be in the base shader for deffered color pixel shader
+			vec3 float_to_vec3( float data ) {
+				vec3 uncompressed;
+				uncompressed.x = fract( data );
+				float zInt = floor( data / 255.0 );
+				uncompressed.z = fract( zInt / 255.0 );
+				uncompressed.y = fract( floor( data - ( zInt * 255.0 ) ) / 255.0 );
+				return uncompressed;
+			}
+			
+		    void main(void) {
+		    	vec2 texCoord = gl_FragCoord.xy / vec2( viewWidth, viewHeight );
+		    	vec4 normalDepth = texture2D( normalSampler, texCoord );
+		    	float z = normalDepth.w;
+
+		    	if(z == 0.0) discard;
+
+		    	vec2 xy = texCoord * 2.0 - 1.0;
+
+		    	vec4 vertexPositionProjected = vec4( xy, z, 1.0 );
+				vec4 vertexPositionVS = matProjInverse * vertexPositionProjected;
+				vertexPositionVS.xyz /= vertexPositionVS.w;
+				vertexPositionVS.w = 1.0;
+
+				vec3 normal = normalize(normalDepth.xyz * 2.0 - 1.0);
+
+				vec4 colorMap = texture2D( colorSampler, texCoord );
+
+				vec3 albedo = float_to_vec3( abs( colorMap.x ) );
+				vec3 specularColor = float_to_vec3( abs( colorMap.y ) );
+				float shininess = abs( colorMap.z );
+				float wrapAround = sign( colorMap.z );
+				float additiveSpecular = sign( colorMap.y );
+
+				vec3 lightVector = lightPos.xyz - vertexPositionVS.xyz;
+				
+				float distance = length( lightVector );
+
+				if(distance > lightRadius) discard;
+
+				float dotProduct = dot( normal, lightVector );
+				float diffuseFull = max( dotProduct, 0.0 );
+
+				vec3 diffuse;
+
+				if ( wrapAround < 0.0 ) {
+					// wrap around lighting
+					float diffuseHalf = max( 0.5 * dotProduct + 0.5, 0.0 );
+
+					const vec3 wrapRGB = vec3( 1.0, 1.0, 1.0 );
+					diffuse = mix( vec3( diffuseFull ), vec3( diffuseHalf ), wrapRGB );
+
+				} else {
+					//simple lighting
+					diffuse = vec3( diffuseFull );
+				}
+
+				float cutoff = 2.0;
+				float denom = distance / lightRadius + 1.0;
+				float attenuation = 1.0 / ( denom * denom );
+				attenuation = ( attenuation - cutoff ) / ( 1.0 - cutoff );
+				attenuation = max( attenuation, 0.0 );
+				attenuation *= attenuation;
+
+				vec3 light = vec3(0.0, 0.0, 1.0);
+
+				gl_FragColor = vec4( light * ( albedo * diffuse ), attenuation );
+		    }
+		</src>
+		<params>
+			<param name="viewHeight" type="float" />
+			<param name="viewWidth" type="float" />
+			<param name="matProjInverse" type="mat4" />
+			<param name="lightPos" type="float3" />
+			<param name="lightRadius" type="float" />
 			<param name="normalSampler" type="tex2d" />
 			<param name="colorSampler" type="tex2d" />
 		</params>

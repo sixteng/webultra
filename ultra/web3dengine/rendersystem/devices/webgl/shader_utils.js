@@ -54,6 +54,22 @@ function() {
 			device.gl.activeTexture(device.gl['TEXTURE' + param.tex_index]);
 			device.gl.bindTexture(device.gl.TEXTURE_2D, param.data.data[device.getName()]);
 			device.gl.uniform1i(param.webgl.loc, param.tex_index);
+		},
+		settexcube: function(device, param) {
+			if(!device.gl['TEXTURE' + param.tex_index])
+				return;
+
+			if(!param.data.data[device.getName()]) {
+				if(param.data.data.raw) {
+					param.data.data[device.getName()] = device.createTexture(param.data.data.raw, param.data.config);
+				} else {
+					param.dirty = true;
+				}
+			}
+			
+			device.gl.activeTexture(device.gl['TEXTURE' + param.tex_index]);
+			device.gl.bindTexture(device.gl.TEXTURE_CUBE_MAP, param.data.data[device.getName()]);
+			device.gl.uniform1i(param.webgl.loc, param.tex_index);
 		}
 	};
 });

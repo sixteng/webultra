@@ -55,7 +55,7 @@ define(['ultra/ultra', 'underscore', 'ultra_engine/resources/texture', 'ultra_en
 			stencilBuffer: false
 		});
 
-		this.lightDir = vec3.fromValues(0, 0.25, 0.75);
+		this.lightDir = vec3.fromValues(0, 0.3, 0.7);
 		this.lightRot = mat4.create();
 
 		this.tMat = Ultra.Math.Matrix4.create();
@@ -91,6 +91,7 @@ define(['ultra/ultra', 'underscore', 'ultra_engine/resources/texture', 'ultra_en
 			if(Ultra.Math.Fustrum.containsSphear(fustrum, pos, 3.0))
 				objects[1].render(device, camera, shader);
 
+			//objects[2].render(device, camera, shader);
 			//End Normal Pass
 
 			// ********************* Render Color Pass
@@ -102,14 +103,52 @@ define(['ultra/ultra', 'underscore', 'ultra_engine/resources/texture', 'ultra_en
 			}
 
 			objects[0].render(device, camera, shader);
+
+			shader = this.engine.shaderManager.getShaderProgram(['basic_terrain_debug_vs', 'basic_debug_ps']);
+			if(!shader) {
+				device.setRenderTarget(null);
+				return;
+			}
+
 			shader = this.engine.shaderManager.getShaderProgram(['deffered_color_basic_vs', 'deffered_color_basic_ps']);
 
 			pos = Ultra.Math.Matrix4.getPosition(objects[1].getMatrix());
 			if(Ultra.Math.Fustrum.containsSphear(fustrum, pos, 3.0))
 				objects[1].render(device, camera, shader);
 
+			//objects[2].render(device, camera, shader);
+
+			//Attempt to render decal!!! Object 2
+
+			/*
+			shader = this.engine.shaderManager.getShaderProgram(['deffered_color_basic_vs', 'deffered_color_basic_ps']);
+			if(!shader) {
+				device.setRenderTarget(null);
+				return;
+			}
+
+			var invProj = Ultra.Math.Matrix4.create();
+			Ultra.Math.Matrix4.invert(invProj, camera.getProjectionMatrix());
+
+			//shader.setParam('matProjInverse', invProj);
+			shader.setParam('uMVMatrix', camera.matrix);
+			//shader.setParam('normalSampler', this.rtNormalDepth);
+			shader.setParam('colorSampler', objects[2].tex);
+
+			if(camera.reflect)
+				device.gl.depthFunc( device.gl.GEQUAL );
+
+			device.gl.depthMask(false);
+			objects[2].render(device, camera, shader, { wireframe : false });
+			device.gl.depthMask(true);
+			*/
 			// *********************** Render Light Pass
 			device.setRenderTarget(this.rtLight, true, false, false);
+
+			//Directional Light
+			device.gl.enable(device.gl.BLEND);
+			device.gl.blendFunc(device.gl.ONE, device.gl.ONE);
+			device.gl.blendEquation(device.gl.FUNC_ADD);
 
 			Ultra.Math.Matrix4.identity(this.lightRot);
 			Ultra.Math.Matrix4.rotate(this.lightRot, this.lightRot, Ultra.Math.degToRad(0.5), [0, 128, 0]);
@@ -141,22 +180,97 @@ define(['ultra/ultra', 'underscore', 'ultra_engine/resources/texture', 'ultra_en
 			this.fullScreenPlane.render(device, camera, shader, { wireframe : false });
 			device.gl.depthMask(true);
 
-			if(objects.length == 3) {
-				pos = Ultra.Math.Matrix4.getPosition(objects[2].getMatrix());
+			//SpotLight
+			shader = this.engine.shaderManager.getShaderProgram(['deffered_spotlight_vs', 'deffered_spotlight_ps']);
+			if(!shader) {
+				device.setRenderTarget(null);
+				return;
+			}
+
+			var lightDir = [0, 1, 0];
+			var lightPos = [0, 15, 0];
+			var lightAngle = Math.PI / 2;
+
+			shader.setParam('viewHeight', 800);
+			shader.setParam('viewWidth', 1024);
+
+			var invProj = Ultra.Math.Matrix4.create();
+
+			Ultra.Math.Matrix4.invert(invProj, camera.getProjectionMatrix());
+
+			Ultra.Math.Vector3.transformMat4(lightPos, lightPos, camera.matrix);
+			Ultra.Math.Vector3.transformMat4(lightDir, lightDir, camera.matrix);
+			Ultra.Math.Vector3.subtract(lightDir, lightDir, Ultra.Math.Matrix4.getPosition(camera.matrix));
+			Ultra.Math.Vector3.normalize(lightDir, lightDir);
+
+			shader.setParam('lightDir', lightDir);
+			shader.setParam('lightPos', lightPos);
+			shader.setParam('lightAngle', lightAngle);
+
+			shader.setParam('matProjInverse', invProj);
+			shader.setParam('normalSampler', this.rtNormalDepth);
+			shader.setParam('colorSampler', this.rtColor);
+
+			if(camera.reflect)
+				device.gl.depthFunc( device.gl.GEQUAL );
+
+			device.gl.depthMask(false);
+			this.fullScreenPlane.render(device, camera, shader, { wireframe : false });
+			device.gl.depthMask(true);
+
+			//Point Light
+			shader = this.engine.shaderManager.getShaderProgram(['deffered_pointlight_vs', 'deffered_pointlight_ps']);
+			if(!shader) {
+				device.setRenderTarget(null);
+				return;
+			}
+
+			shader.setParam('viewHeight', 800);
+			shader.setParam('viewWidth', 1024);
+
+			var invProj = Ultra.Math.Matrix4.create();
+			Ultra.Math.Matrix4.invert(invProj, camera.getProjectionMatrix());
+
+			var lightPos = Ultra.Math.Vector3.clone(objects[2].getPosition());
+			
+			//Ultra.Math.Matrix4.invert(this.tMat, camera.matrix);
+			//Hmm Something strange.. should be invertedMatrix ????
+			Ultra.Math.Vector3.transformMat4(lightPos, lightPos, camera.getMatrix());
+
+			shader.setParam('lightRadius', 2);
+			shader.setParam('lightPos', lightPos);
+			shader.setParam('matProjInverse', invProj);
+			shader.setParam('normalSampler', this.rtNormalDepth);
+			shader.setParam('colorSampler', this.rtColor);
+
+			//Disable depth mask write to not fuck up depth buffer
+			if(camera.reflect)
+				device.gl.depthFunc( device.gl.GEQUAL );
+
+			device.gl.depthMask(false);
+			objects[2].render(device, camera, shader, { wireframe : false });
+			device.gl.depthMask(true);
+			//End light
+
+			device.gl.disable(device.gl.BLEND);
+
+			//Render transparent!!!
+
+			if(objects.length == 5) {
+				pos = Ultra.Math.Matrix4.getPosition(objects[objects.length - 1].getMatrix());
 				if(Ultra.Math.Fustrum.containsSphear(fustrum, pos, 3.0)) {
 					//Render Forward Objects
 					shader = this.engine.shaderManager.getShaderProgram(['water_vs', 'water_ps']);
 					if(!shader)
 						return;
 
- 
 					var reflMat = Ultra.Math.Matrix4.create();
-					Ultra.Math.Matrix4.multiply(reflMat, objects[2].envCamera.getMatrix(), objects[2].getMatrix());
-					Ultra.Math.Matrix4.multiply(reflMat, objects[2].envCamera.getProjectionMatrix(), reflMat);
+					Ultra.Math.Matrix4.multiply(reflMat, objects[objects.length - 1].envCamera.getMatrix(), objects[objects.length - 1].getMatrix());
+					Ultra.Math.Matrix4.multiply(reflMat, objects[objects.length - 1].envCamera.getProjectionMatrix(), reflMat);
 
 					shader.setParam('projRefl', reflMat);
 					shader.setParam('uSampler', objects[1].textures['water']);
-					shader.setParam('envSampler', objects[2].envMap);
+					shader.setParam('envSampler', objects[objects.length - 1].envMap);
 					shader.setParam('bump', objects[1].textures['water_bump']);
 
 					shader.setParam('amplitude', [0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
@@ -176,14 +290,21 @@ define(['ultra/ultra', 'underscore', 'ultra_engine/resources/texture', 'ultra_en
 
 					device.gl.enable(device.gl.BLEND);
 					device.gl.blendFunc(device.gl.SRC_ALPHA, device.gl.ONE_MINUS_SRC_ALPHA);
-					objects[2].render(device, camera, shader);
+					objects[objects.length - 1].render(device, camera, shader);
 					device.gl.disable(device.gl.BLEND);
-					objects[2].clipped = false;
-				} else {
-					objects[2].clipped = true;
 				}
 			}
 
+			shader = this.engine.shaderManager.getShaderProgram(['skybox_vs', 'skybox_ps']);
+			if(!shader) {
+				device.setRenderTarget(null);
+				return;
+			}
+
+			//Render Skybox
+			device.gl.depthRange(0.999999, 1.0);
+			objects[3].render(device, camera, shader);
+			device.gl.depthRange(0.0, 1.0);
 			// ************************* Combine Pass
 			device.gl.depthFunc( device.gl.LESS );
 			device.setRenderTarget(target);

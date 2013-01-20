@@ -15,6 +15,8 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra_engi
 		this.fustrum = Ultra.Math.Fustrum.create();
 		this.fustrum_dirty = true;
 
+		this.matrixInverse = Ultra.Math.Matrix4.create();
+
 		this.tMat = Ultra.Math.Matrix4.create();
 		this.tPlane = Ultra.Math.Plane.create();
 		this.tPlane2 = Ultra.Math.Plane.create();
@@ -60,6 +62,10 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra_engi
 		updateProjectionMatrix: function() {
 		},
 		updateMatrix: function() {
+		},
+		setMatrix: function(mat) {
+			this.matrix = mat;
+			Ultra.Math.Matrix4.invert(this.matrixInverse, this.matrix);
 		}
     });
 
@@ -86,6 +92,8 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra_engi
 			Ultra.Math.Matrix4.rotateY(this.matrix, this.matrix, this.rotation[1]);
 			Ultra.Math.Matrix4.rotateZ(this.matrix, this.matrix, this.rotation[2]);
 			Ultra.Math.Matrix4.translate(this.matrix, this.matrix, this.position);
+
+			Ultra.Math.Matrix4.invert(this.matrixInverse, this.matrix);
 
 			this.matrixDirty = false;
 			this.updateFustrum();
