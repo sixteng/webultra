@@ -56,8 +56,6 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra/common/indexed_db', 'ultra_
 			this.data.raw = [];
 			for(var i = 0; i < this.textures.length; i++)
 				this.data.raw.push(this.textures[i].data.raw);
-
-			console.log('Cube Texture Loaded');
 		}
 	});
 

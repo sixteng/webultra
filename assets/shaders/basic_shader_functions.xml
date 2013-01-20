@@ -1,0 +1,46 @@
+<functions>
+	<function name="sample2D" title="Texture 2D Sample">
+		<input name="uv" title="UV's" type="float2" default="#global.uv.0#" /> 
+		<output name="color" title="Color" type="float4"/> 
+		<param name="texture" title="Texture" type="tex2D" default=""/>
+		<src device="webgl" version="1.0" inline="true">
+			texture2D(#texture#, #uv#)
+		</src>
+	</function>
+	<function name="normalize" title="Normalize">
+		<input name="value" title="Value" type="float*" default="" /> 
+		<output name="norm" title="Value" type="float*"/> 
+		<src device="webgl" version="1.0" inline="true">
+			normalize(#value#)
+		</src>
+	</function>
+	<function name="mul" title="Multiply">
+		<input name="value1" title="Value" type="float*" default="" />
+		<input name="value2" title="Value" type="float*" default="" /> 
+		<output name="output" title="Value" type="float*"/> 
+		<src device="webgl" version="1.0" inline="true">
+			value1 * value2
+		</src>
+	</function>
+	<function name="split" title="Split">
+		<input name="value" title="Value" type="float*" default="" />
+		<output name="output1" title="X" type="float"/>
+		<output name="output2" title="Y" type="float"/> 
+		<output name="output3" title="Z" type="float"/> 
+		<output name="output4" title="W" type="float"/>  
+		<src device="webgl" version="1.0" lua="true">
+			local src = ""
+
+			src = src .. "#output1# = #value#.x;\n"
+			src = src .. "#output2# = #value#.y;\n"
+
+			if data.inputs.value.type == '' then
+				src = src .. "#output3# = #value#.z;\n"
+			else
+				src = src .. "#output3# = 0.0;\n"
+			end
+
+			return src
+		</src>
+	</function>
+</functions>

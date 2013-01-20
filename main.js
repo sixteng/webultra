@@ -21,6 +21,7 @@ requirejs([
 	'ultra_engine/objects/plane',
 	'ultra_engine/objects/box',
 	'ultra_engine/objects/skybox',
+	'ultra_engine/shader/shader',
 	'ultra/common/math'],
 function (Ultra) {
     var rCamera = mat4.create();
@@ -79,13 +80,17 @@ function (Ultra) {
 	//Executes when the engine is done setting up
 	engine.on('init', function(e, device) { 
 		//Enter Main Loop
-		engine.run();
+		//engine.run();
 	});
 
 	//Load shader files
 	engine.shaderManager.loadFromFile('/assets/shaders/basic.xml');
 	engine.shaderManager.loadFromFile('/assets/shaders/deffered.xml');
 	engine.shaderManager.loadFromFile('/assets/shaders/water.xml');
+
+	var shaderBuilder = new Ultra.Web3DEngine.Shader2.Builder(engine.fileManager);
+
+	shaderBuilder.loadFunctionsFromFile('/assets/shaders/basic_shader_functions.xml');
 
 	//Create Terrain Patches
 	terrain = new Ultra.Web3DEngine.Terrain(engine);
