@@ -55,7 +55,7 @@ define(['ultra/ultra', 'underscore', 'ultra_engine/resources/texture', 'ultra_en
 			stencilBuffer: false
 		});
 
-		this.lightDir = vec3.fromValues(0, 0.3, 0.7);
+		this.lightDir = vec3.fromValues(0, 0.5, 0.5);
 		this.lightRot = mat4.create();
 
 		this.tMat = Ultra.Math.Matrix4.create();
