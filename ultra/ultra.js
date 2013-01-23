@@ -8,5 +8,17 @@ define(function () {
 		}
 	};
 
+	Ultra.Enum = {
+		add: function(base, key) {
+			if(!Ultra.Enum[base]) {
+				Ultra.Enum[base] = {
+					index : 1
+				};
+			}
+			Ultra.Enum[base].index *= 2;
+			Ultra.Enum[base][key] = Ultra.Enum[base].index;
+		}
+	};
+
 	return Ultra;
 });

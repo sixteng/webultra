@@ -5,12 +5,14 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'ultra_engine/engine', 'ultra/comm
 		Ultra.Web3DEngine = {};
 
     Ultra.Web3DEngine.Terrain = function(engine) {
+    	Ultra.Web3DEngine.Objects.Base.call(this);
+    	
 		this.engine = engine;
 		this.patches = [];
 		this.planes = [];
     };
 
-    _.extend(Ultra.Web3DEngine.Terrain.prototype, Jvent.prototype, {
+    _.extend(Ultra.Web3DEngine.Terrain.prototype, Jvent.prototype, Ultra.Web3DEngine.Objects.Base.prototype, {
 		addPatch: function(path, pos) {
 			var patch = new Ultra.Web3DEngine.TerrainPatch(this.engine, this);
 			patch.createFromFile(path);

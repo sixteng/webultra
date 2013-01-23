@@ -21,6 +21,11 @@ define(['ultra/ultra', 'underscore'], function(Ultra, _) {
 
 		this.vTmp = Ultra.Math.Vector3.create();
 
+		this.children = [];
+		this.parent = false;
+		this.material = false;
+		this.visible = true;
+
 		this.matrixDirty = true;
 	};
 
@@ -92,6 +97,8 @@ define(['ultra/ultra', 'underscore'], function(Ultra, _) {
 			return this.rotation;
 		},
 		updateMatrix: function() {
+			if(!this.matrixDirty) return;
+
 			Ultra.Math.Matrix4.identity(this.matrix);
 			Ultra.Math.Matrix4.translate(this.matrix, this.matrix, this.position);
 			Ultra.Math.Matrix4.scale(this.matrix, this.matrix, this.scale);

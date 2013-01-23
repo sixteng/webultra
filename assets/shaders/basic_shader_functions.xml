@@ -1,43 +1,126 @@
 <functions>
+	<function name="position" title="Vertex Position">
+		<output name="pos" title="Color" type="float3"/>
+		<output name="pos_x" title="Color" type="float">
+			<src device="webgl" version="1.0">#global.pos#.x</src>
+		</output>
+		<output name="pos_y" title="Color" type="float">
+			<src device="webgl" version="1.0">#global.pos#.y</src>
+		</output>
+		<output name="pos_z" title="Color" type="float">
+			<src device="webgl" version="1.0">#global.pos#.z</src>
+		</output>
+		<src device="webgl" version="1.0">
+		</src>
+	</function>
 	<function name="sample2D" title="Texture 2D Sample">
-		<input name="uv" title="UV's" type="float2" default="#global.uv.0#" /> 
-		<output name="color" title="Color" type="float4"/> 
+		<input name="uv" title="UV's" type="float2" default="#global.uv.0#" />
+		<input name="offset_x" title="UV's offset X" type="float" default="0.0" />
+		<input name="offset_y" title="UV's offset Y" type="float" default="0.0" />
+		<output name="color" title="Color" type="float4"/>
+		<output name="color_r" title="Color" type="float">
+			<src device="webgl" version="1.0">#color#.r</src>
+		</output>
+		<output name="color_g" title="Color" type="float">
+			<src device="webgl" version="1.0">#color#.g</src>
+		</output>
+		<output name="color_b" title="Color" type="float">
+			<src device="webgl" version="1.0">#color#.b</src>
+		</output>
+		<output name="color_a" title="Color" type="float">
+			<src device="webgl" version="1.0">#color#.a</src>
+		</output>
 		<param name="texture" title="Texture" type="tex2D" default=""/>
-		<src device="webgl" version="1.0" inline="true">
-			texture2D(#texture#, #uv#)
+		<src device="webgl" version="1.0">
+			vec4 #color# = texture2D(#texture#, #uv# + vec2(#offset_x#, #offset_y#));
+		</src>
+	</function>
+	<function name="cross" title="Cross">
+		<input name="value1" title="Value1" type="float*" default="" />
+		<input name="value2" title="Value2" type="float*" default="" /> 
+		<output name="output" title="Output" type="float*"/> 
+		<src device="webgl" version="1.0">
+			#output# = cross(#value1#, #value2#);
 		</src>
 	</function>
 	<function name="normalize" title="Normalize">
 		<input name="value" title="Value" type="float*" default="" /> 
-		<output name="norm" title="Value" type="float*"/> 
-		<src device="webgl" version="1.0" inline="true">
-			normalize(#value#)
+		<output name="output" title="Output" type="float*"/> 
+		<src device="webgl" version="1.0">
+			#output# = normalize(#value#);
 		</src>
 	</function>
 	<function name="mul" title="Multiply">
 		<input name="value1" title="Value" type="float*" default="" />
 		<input name="value2" title="Value" type="float*" default="" /> 
-		<output name="output" title="Value" type="float*"/> 
-		<src device="webgl" version="1.0" inline="true">
-			value1 * value2
+		<output name="output" title="Output" type="float*"/> 
+		<src device="webgl" version="1.0">
+			#output# = #value1# * #value2#;
+		</src>
+	</function>
+	<function name="div" title="Divide">
+		<input name="value1" title="Value" type="float*" default="" />
+		<input name="value2" title="Value" type="float*" default="" /> 
+		<output name="output" title="Output" type="float*"/> 
+		<src device="webgl" version="1.0">
+			#output# = #value1# / #value2#;
+		</src>
+	</function>
+	<function name="sub" title="Subtract">
+		<input name="value1" title="Value" type="float*" default="" />
+		<input name="value2" title="Value" type="float*" default="" /> 
+		<output name="output" title="Output" type="float*"/> 
+		<src device="webgl" version="1.0">
+			#output# = #value1# - #value2#;
+		</src>
+	</function>
+	<function name="neg" title="Negate">
+		<input name="value" title="Value" type="float*" default="" /> 
+		<output name="output" title="Output" type="float*">
+			<src device="webgl" version="1.0">-#value#</src>
+		</output>
+		<src device="webgl" version="1.0">
 		</src>
 	</function>
 	<function name="split" title="Split">
 		<input name="value" title="Value" type="float*" default="" />
-		<output name="output1" title="X" type="float"/>
-		<output name="output2" title="Y" type="float"/> 
-		<output name="output3" title="Z" type="float"/> 
-		<output name="output4" title="W" type="float"/>  
+		<output name="output_x" title="X" type="float">
+			<src device="webgl" version="1.0">#value#.x</src>
+		</output>
+		<output name="output_y" title="Y" type="float">
+			<src device="webgl" version="1.0">#value#.y</src>
+		</output>
+		<output name="output_z" title="Z" type="float">
+			<src device="webgl" version="1.0">#value#.z</src>
+		</output> 
+		<output name="output_w" title="W" type="float">
+			<src device="webgl" version="1.0">#value#.w</src>
+		</output>
+		<src device="webgl" version="1.0">
+		</src>
+	</function>
+	<function name="merge" title="Merge">
+		<input name="input_x" title="X" type="float" default="0.0"/>
+		<input name="input_y" title="Y" type="float" default="0.0"/> 
+		<input name="input_z" title="Z" type="float" default="0.0"/> 
+		<input name="input_w" title="W" type="float" default="0.0"/>
+		<output name="output" title="Output" type="#type#" />
+
+		<param name="type" title="Type">
+			<value title="Vector 2">float2</value>
+			<value title="Vector 3" default="true">float3</value>
+			<value title="Vector 4">float4</value>
+		</param>
+
 		<src device="webgl" version="1.0" lua="true">
 			local src = ""
 
-			src = src .. "#output1# = #value#.x;\n"
-			src = src .. "#output2# = #value#.y;\n"
-
-			if data.inputs.value.type == '' then
-				src = src .. "#output3# = #value#.z;\n"
-			else
-				src = src .. "#output3# = 0.0;\n"
+			if data.params.type.value == 'float2' then
+				src = src .. "vec2 #output# = vec2(#input_x#, #input_y#);\n"
+			elseif data.params.type.value == 'float3' then
+				src = src .. "vec3 #output# = vec3(#input_x#, #input_y#, #input_z#);\n"
+			elseif data.params.type.value == 'float4' then
+				src = src .. "vec4 #output# = vec4(#input_x#, #input_y#, #input_z#, #input_w#);\n"
 			end
 
 			return src

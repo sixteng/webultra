@@ -22,6 +22,8 @@ requirejs([
 	'ultra_engine/objects/box',
 	'ultra_engine/objects/skybox',
 	'ultra_engine/shader/shader',
+	'ultra_engine/scene/base',
+	'ultra_engine/material/base',
 	'ultra/common/math'],
 function (Ultra) {
     var rCamera = mat4.create();
@@ -80,7 +82,7 @@ function (Ultra) {
 	//Executes when the engine is done setting up
 	engine.on('init', function(e, device) { 
 		//Enter Main Loop
-		//engine.run();
+		engine.run();
 	});
 
 	//Load shader files
@@ -88,14 +90,30 @@ function (Ultra) {
 	engine.shaderManager.loadFromFile('/assets/shaders/deffered.xml');
 	engine.shaderManager.loadFromFile('/assets/shaders/water.xml');
 
-	var shaderBuilder = new Ultra.Web3DEngine.Shader2.Builder(engine.fileManager);
-
-	shaderBuilder.loadFunctionsFromFile('/assets/shaders/basic_shader_functions.xml');
+	//Shader Builder
+	//var shaderBuilder = new Ultra.Web3DEngine.Shader2.Builder(engine.fileManager);
+	//shaderBuilder.loadFunctionsFromFile('/assets/shaders/basic_shader_functions.xml');
+	
+	//shaderBuilder.once('load', function() {
+	//	shaderBuilder.loadMaterialsFromFile('/assets/materials/terrain.xml');
+	//	shaderBuilder.once('load', function() {
+	//		shaderBuilder.compile(shaderBuilder.materials['terrain']);
+	//	});
+	//});
+	/*
+	if(func.sources[$(sources[i]).attr('device')].lua) {
+		self.compile(func.sources[$(sources[i]).attr('device')], {
+			inputs : { value : { name : 'value', type : 'float3'} },
+			outputs : {}
+		});
+	}
+	*/
 
 	//Create Terrain Patches
 	terrain = new Ultra.Web3DEngine.Terrain(engine);
 	terrain.buildPlanes();
 	terrain.addPatch('/assets/images/heightmap.png');
+	terrain.material = new Ultra.Web3DEngine.Material.Base();
 	//terrain.addPatch('/assets/images/heightmap.png', [127, 0]);
 
 	//Create the water plane for the terrain
@@ -110,6 +128,9 @@ function (Ultra) {
 		mipmap: false,
 		stencilBuffer: false
 	});
+
+	water.material = new Ultra.Web3DEngine.Material.Base();
+	water.material.transparent = true;
 
 	//Load an Mesh and place it
 	house = new Ultra.Web3DEngine.Objects.Mesh(engine);
@@ -131,6 +152,8 @@ function (Ultra) {
 	house.textures['water'] = engine.textureManager.getTexture('/assets/images/water.png');
 	house.textures['water_bump'] = engine.textureManager.getTexture('/assets/images/water.jpg');
 
+	house.material = new Ultra.Web3DEngine.Material.Base();
+
 	box = new Ultra.Web3DEngine.Objects.Box(10, 10);
 	box.setPosition([10, 7, -10]);
 	box.setScale([5, 5, 5]);
@@ -139,6 +162,9 @@ function (Ultra) {
 	var skybox = new Ultra.Web3DEngine.Objects.SkyBox(engine);
 	skybox.create(['/assets/images/skybox/px.jpg', '/assets/images/skybox/nx.jpg', '/assets/images/skybox/ny.jpg', '/assets/images/skybox/py.jpg', '/assets/images/skybox/pz.jpg', '/assets/images/skybox/nz.jpg']);
 	skybox.setPosition([0, 0.1, 0]);
+
+	skybox.material = new Ultra.Web3DEngine.Material.Base();
+	skybox.material.affectedByLight = false;
 	//Initialize InputHandler, binds and buffers all inputs to the canvas
 	var im = new Ultra.InputManager({ target : document.getElementById("glcanvas") });
 
@@ -149,6 +175,14 @@ function (Ultra) {
 
 	//Setup the reflection / perspective camera.. used for the water surface
 	reflectedCamera = new Ultra.Web3DEngine.Cameras.PerspectiveCamera(45, 1024 / 800, 0.1, 1000.0);
+
+	var scene = new Ultra.Web3DEngine.Scene.Base();
+	scene.add(terrain);
+	scene.add(water);
+	scene.add(house);
+	scene.add(skybox);
+
+	console.log(scene.traverse(Ultra.Enum.Scene.OPAQUE));
 
 	//Load the heightmap to be able to lookup height data to position the camera
 	var heightMapCtx;
@@ -177,6 +211,7 @@ function (Ultra) {
 
 		camera.setPosition([pos[0], -(data[0] / 255 * 25 + 2), pos[2]]);
 	});
+
 
 	//Move camera on tick, 
 	engine.on('tick', camera.tick.bind(camera));

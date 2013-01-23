@@ -1,0 +1,85 @@
+<materials>
+	<material name="terrain">
+		<dependency path="" />
+		//Position
+		<node name="tex1" type="sample2D" title="Texture" version="1.0">
+			<param name="texture" value="uSampler"/>
+		</node>
+		<node name="split1" type="split" title="" version="1.0">
+			<input name="value" node="tex1" output="color"/>
+		</node>
+		<node name="mul1" type="mul" title="" version="1.0">
+			<input name="value1" node="split1" output="output_x"/>
+			<input name="value2" value="25.0"/>
+		</node>
+		<node name="position1" type="position" title="" version="1.0">
+		</node>
+		<node name="merge1" type="merge" title="" version="1.0">
+			<param name="type" value="float4"/>
+			<input name="input_x" node="position1" output="pos_x"/>
+			<input name="input_y" node="mul1" output="output"/>
+			<input name="input_z" node="position1" output="pos_y"/>
+			<input name="input_w" value="1.0"/>
+		</node>
+
+		//Normal
+		<node name="div1" type="div" title="" version="1.0">
+			<input name="value1" value="1.0"/>
+			<input name="value2" value="planeSize"/>
+		</node>
+		<node name="neg1" type="neg" title="" version="1.0">
+			<input name="value" node="div1" output="output"/>
+		</node>
+		<node name="tex2" type="sample2D" title="Texture" version="1.0">
+			<param name="texture" value="uSampler"/>
+			<input name="offset_x" node="neg1" output="output"/>
+		</node>
+		<node name="tex3" type="sample2D" title="Texture" version="1.0">
+			<param name="texture" value="uSampler"/>
+			<input name="offset_x" node="div1" output="output"/>
+		</node>
+		<node name="tex4" type="sample2D" title="Texture" version="1.0">
+			<param name="texture" value="uSampler"/>
+			<input name="offset_y" node="neg1" output="output"/>
+		</node>
+		<node name="tex5" type="sample2D" title="Texture" version="1.0">
+			<param name="texture" value="uSampler"/>
+			<input name="offset_y" node="div1" output="output"/>
+		</node>
+		<node name="sub1" type="sub" title="" version="1.0">
+			<input name="value1" node="tex3" output="color_r"/>
+			<input name="value2" node="tex2" output="color_r"/>
+		</node>
+		<node name="sub2" type="sub" title="" version="1.0">
+			<input name="value1" node="tex5" output="color_r"/>
+			<input name="value2" node="tex4" output="color_r"/>
+		</node>
+		<node name="merge2" type="merge" title="" version="1.0">
+			<param name="type" value="float3"/>
+			<input name="input_x" value="2.0"/>
+			<input name="input_y" node="sub1" output="output"/>
+			<input name="input_z" value="0.0"/>
+		</node>
+		<node name="merge3" type="merge" title="" version="1.0">
+			<param name="type" value="float3"/>
+			<input name="input_x" value="0.0"/>
+			<input name="input_y" node="sub2" output="output"/>
+			<input name="input_z" value="-2.0"/>
+		</node>
+		<node name="normalize1" type="normalize" title="" version="1.0">
+			<input name="value" node="merge2" output="output"/>
+		</node>
+		<node name="normalize2" type="normalize" title="" version="1.0">
+			<input name="value" node="merge3" output="output"/>
+		</node>
+
+		<node name="cross1" type="cross" title="" version="1.0">
+			<input name="value1" node="normalize1" output="output"/>
+			<input name="value2" node="normalize2" output="output"/>
+		</node>
+		<node name="output" type="output" title="" version="1.0">
+			<input name="position" node="merge1" output="output"/>
+			<input name="normal" node="cross1" output="output"/>
+		</node>
+	</material>
+</materials>
