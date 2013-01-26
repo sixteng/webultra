@@ -5,6 +5,7 @@ define([
 	'ultra_engine/input_manager',
 	'ultra_engine/resources/manager',
 	'ultra_engine/shader_manager',
+	'ultra_engine/shader/shader',
 	'ultra_engine/resources/texture',
 	'ultra_engine/rendersystem/rendertarget'
 ], function(Ultra, _, Jvent) {
@@ -52,6 +53,7 @@ define([
 		this.textureManager = Ultra.Resources.TextureManager;
 		this.cache = Ultra.Resources.CacheManager;
 		this.shaderManager = new Ultra.Web3DEngine.ShaderManager(this, {});
+		this.shaderBuilder = new Ultra.Web3DEngine.Shader2.Builder(this, {});
 		this.config = config;
 		this.collection = {};
 		this.lastTime = 0;

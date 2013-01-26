@@ -4,7 +4,9 @@ define([
 	'underscore',
 	'Jvent',
 	'jquery',
-	'ultra_engine/engine'
+	'ultra_engine/engine',
+	'ultra_engine/material/base',
+	'ultra_engine/shader/shader_graph'
 ],
 function(Ultra, _, Jvent, $) {
 	'use strict';
@@ -15,15 +17,112 @@ function(Ultra, _, Jvent, $) {
 	if(_.isUndefined(Ultra.Web3DEngine.Shader2))
 		Ultra.Web3DEngine.Shader2 = {};
 
-	Ultra.Web3DEngine.Shader2.Builder = function(fileManager, functions) {
+	Ultra.Web3DEngine.Shader2.BaseShader = function(name, sources, params, inputs, type) {
+		this.name = name;
+		this.type = type;
+		this.sources = sources;
+		this.params = params;
+		this.inputs = inputs;
+	};
+
+	_.extend(Ultra.Web3DEngine.Shader2.BaseShader.prototype, {
+
+	});
+
+	Ultra.Web3DEngine.Shader2.ShaderProgram = function(base_shaders, graph) {
+		this.shaders = base_shaders;
+		this.graph = graph;
+		this.compiled = {};
+
+		var texIndex = 0;
+
+		this.params = _.reduce(base_shaders, function(params, shader) {
+			_.extend(params, shader.params);
+			return params;
+		}, {});
+
+		var graph_params = graph.getParams();
+
+		_.extend(this.params, graph_params);
+		//_.extend(this.params, params);
+
+		for(var key in this.params) {
+			if(this.params[key].type.indexOf('tex') === 0) {
+				this.params[key].tex_index = texIndex;
+				texIndex++;
+			}
+		}
+	};
+
+	_.extend(Ultra.Web3DEngine.Shader2.ShaderProgram.prototype, {
+		setParam: function(name, value) {
+			if(_.isUndefined(this.params[name])) return;
+
+			this.params[name].data = value;
+			this.params[name].dirty = true;
+		},
+		getParam: function(name) {
+			return this.params[name].val;
+		},
+		compile: function(device) {
+			if(this.compiled[device.getName()])
+				return this.compiled[device.getName()];
+
+			var graph = this.graph.compile(device);
+			if(!graph)
+				return null;
+
+			var sources = [];
+
+			//TODO: REWRITE EVEYTHING!!! THIS SUCKS!!!!
+
+			for(var i = 0; i < this.shaders.length; i++) {
+				var graph_source = '';
+				var params = {};
+
+				for(var input in this.shaders[i].inputs) {
+
+					//TODO: Make this language independent
+
+					_.extend(params, graph[input].data.params);
+
+					graph_source += device.convShaderParam(this.shaders[i].inputs[input].type) + ' get' + input + '() {\n';
+					graph_source += graph[input].src;
+					graph_source += 'return ' + graph[input].result + ';\n}\n';
+				}
+
+				for(var param in params) {
+					graph_source = 'uniform sampler2D ' + param + ';\n' + graph_source;
+				}
+
+				//HOW TO SOLVE THIS?!?!?!?!
+				if(this.shaders[i].type == 'pixel') {
+					graph_source = graph_source.replace(/aTextureCoord/g, 'uvs');
+				}
+
+				sources.push({
+					src : {
+						webgl : this.shaders[i].sources[device.getType()].replace('#BODY', graph_source)
+					},
+					type : this.shaders[i].type
+				});
+			}
+
+			//console.log(sources);
+			this.compiled[device.getName()] = true;
+			this.compiled[device.getName()] = device.compileShaderProgram2(this, sources);
+
+			return this.compiled[device.getName()];
+		}
+	});
+
+	Ultra.Web3DEngine.Shader2.Builder = function(engine) {
 		Jvent.call(this);
-		this.functions = functions;
+		this.engine = engine;
+
 		this.materials = {};
-
-		this.fileManager = fileManager;
-
-		if(!this.functions)
-			this.functions = {};
+		this.baseShaders = {};
+		this.functions = {};
 	};
 
 	_.extend(Ultra.Web3DEngine.Shader2.Builder.prototype, Jvent.prototype, {
@@ -32,27 +131,27 @@ function(Ultra, _, Jvent, $) {
 		},
 		loadMaterialsFromFile: function(path) {
 			var self = this;
-			if(!this.fileManager) return;
 
-			var file = this.fileManager.loadFileAsXml(path);
+			var file = this.engine.fileManager.loadFileAsXml(path);
 			file.on('load', function(e, data) {
 				if(data === false) {
 					return;
 				}
 
-				data.find('material').each(function(f, mat_data) {
-					var material = {
-						name : $(mat_data).attr('name'),
-						nodes : {}
-					};
+				data.find('material').each(function(f, mat) {
+					var graph = new Ultra.Web3DEngine.Shader2.Graph();
+					var material = new Ultra.Web3DEngine.Material.Base();
 
-					$(mat_data).find('node').each(function(f, node_data) {
+					material.setGraph(graph);
+
+					$(mat).find('node').each(function(f, node_data) {
 						var node = {
 							name : $(node_data).attr('name'),
 							title : $(node_data).attr('title'),
 							type : $(node_data).attr('type'),
 							inputs : {},
 							params : {},
+							sources : {},
 							version: $(node_data).attr('version')
 						};
 
@@ -71,14 +170,56 @@ function(Ultra, _, Jvent, $) {
 						for(i = 0; i < params.length; i++) {
 							node.params[$(params[i]).attr('name')] = {
 								name : $(params[i]).attr('name'),
-								value : $(params[i]).attr('value')
+								value : $(params[i]).attr('value'),
+								type : $(params[i]).attr('type')
 							};
 						}
 
-						material.nodes[$(node_data).attr('name')] = node;
+						var sources = $(node_data).find('src');
+						for(i = 0; i < sources.length; i++) {
+							node.sources[$(sources[i]).attr('device')] = $(sources[i]).text();
+						}
+
+						graph.addNode($(node_data).attr('name'), node);
+					});
+					self.materials[$(mat).attr('name')] = material;
+				});
+
+				self.emit('load');
+			});
+		},
+		loadBaseShadersFromFile: function(path) {
+			var self = this;
+			var file = this.engine.fileManager.loadFileAsXml(path);
+			file.on('load', function(e, data) {
+				if(data === false) {
+					return;
+				}
+
+				data.find('shader').each(function(i, shader) {
+					var data = {
+						src : {},
+						params : {},
+						inputs : {}
+					};
+					$(shader).find('input').each(function(p, input) {
+						data.inputs[$(input).attr('name')] = {
+							name : $(input).attr('name'),
+							type : $(input).attr('type')
+						};
 					});
 
-					self.materials[$(mat_data).attr('name')] = material;
+					$(shader).find('param').each(function(p, param) {
+						data.params[$(param).attr('name')] = { type : $(param).attr('type')};
+					});
+
+					$(shader).find('src').each(function(p, src) {
+						var str = $(src).text();
+
+						data.src[$(src).attr('target')] = $(src).text();
+					});
+
+					self.baseShaders[$(shader).attr('name')] = new Ultra.Web3DEngine.Shader2.BaseShader($(shader).attr('name'), data.src, data.params, data.inputs, $(shader).attr('type'));
 				});
 
 				self.emit('load');
@@ -86,9 +227,8 @@ function(Ultra, _, Jvent, $) {
 		},
 		loadFunctionsFromFile: function(path) {
 			var self = this;
-			if(!this.fileManager) return;
 
-			var file = this.fileManager.loadFileAsXml(path);
+			var file = this.engine.fileManager.loadFileAsXml(path);
 			file.on('load', function(e, data) {
 				if(data === false) {
 					return;
@@ -160,60 +300,6 @@ function(Ultra, _, Jvent, $) {
 				self.emit('load');
 			});
 		},
-		/*
-		preProcessIfStatement: function(src, cond, if_statement, else_statment) {
-			var self = this;
-			var regExp = /#(.*?)#/g;
-
-			regExp.compile('(?:#)?else if#[\\s]*?\\((.*?)\\)#([\\s\\S]*?)(#|$)', 'g');
-			if_statement = if_statement.replace(regExp, this.preProcessIfElseStatement.bind(this));
-
-			regExp.compile('([\\s\\S]*?)(?=\n} else if|$)');
-			if_statement = if_statement.replace(regExp, function(src, statement) {
-				return '{\nsrc += ' + self.compileString(statement).trim().replace('\n', '\\n');
-			});
-
-			if(else_statment) {
-				else_statment = '\n} else {\nsrc += ' + self.compileString(else_statment).trim().replace('\n');
-			}
-
-			return '#JS_EXP#if (' + cond + ')' + if_statement + else_statment + '\n}#/JS_EXP#';
-		},
-		preProcessIfElseStatement: function(src, cond, if_else_statement) {
-			return '\n} else if (' + cond + ') {\nsrc += ' + this.compileString(if_else_statement).trim().replace('\n', '\\n');
-		},
-		compileString: function(src) {
-			//Convert the source to an js function that outputs the code
-			//Convert preprocess tokens to js
-			var match;
-			var regExp = new RegExp();
-			for(var pattern in this.preTokens) {
-				if(!_.isFunction(this[this.preTokens[pattern]]))
-					continue;
-
-				regExp.compile(pattern, 'g');
-
-				src = src.replace(regExp, this[this.preTokens[pattern]].bind(this));
-			}
-
-			regExp.compile('(?=#/JS_EXP|^)([\\s\\S]*?(?=#JS_EXP|$))');
-			src = src.replace(regExp, function(src, match) {
-				if(match.substring(0, '#/JS_EXP'.length) == '#/JS_EXP') {
-					return '\nsrc += ' + match.substring('#/JS_EXP'.length).trim().replace('\n', '\\n') + '\';\n';
-				} else {
-					return 'src = \'' + match.trim().replace('\n', '\\n') + '\';\n';
-				}
-			});
-
-			regExp.compile('#[/]?JS_EXP#|\t', 'g');
-			src = src.replace(regExp, '');
-
-			return src;
-		},
-		*/
-		testLua: function(shader, data) {
-
-		},
 		addFunction: function(name, src) {
 			this.functions[name] = src;
 		},
@@ -257,65 +343,76 @@ function(Ultra, _, Jvent, $) {
 
 			return table;
 		},
-		compile: function(material) {
-			/*
-			if(shader.lua) {
-				//First compile and run as lua script, this is to add support for more advanced stuff
-				var luaData = this.shaderToLuaTable(data);
-				var luaFunc = lua_load('function compile(data) \n ' + shader.text + ' \n end');
-				var g = luaFunc();
-				var result = lua_call(lua_tableget(g, "compile"), [luaData]);
-			}
-			*/
-
+		compileShader: function(graph, base, device) {
+			console.log(arguments);
+		},
+		compileMaterialGraph: function(graph, device) {
 			var input_type = {
 				'position' : 'vec4',
-				'normal' : 'vec3'
+				'normal' : 'vec3',
+				'uvs' : 'vec2',
+				'diffuse' : 'vec4'
 			};
 
-			var root = material.nodes.output;
-			var data = {
-				shared : {}
-			};
+			var globals = device.getShaderGlobals();
 
-			var code = '';
+			var root = graph.nodes.output;
+
 			var result = false;
-			var tmp;
-			for(var key in root.inputs) {
-				result = this.compileNode(material.nodes[root.inputs[key].node], material.nodes, {}, {});
+			var returnParam = '';
+			var code = {};
+			//Get the base shaders
 
-				if(result === false) {
-					//Add logging
-					return false;
-				}
-
-				if(material.nodes[root.inputs[key].node].value) {
-					tmp = material.nodes[root.inputs[key].node].value;
-				} else {
-					//If the previous node has a onliner output, use that, otherwise grab the output variable name
-					if(material.nodes[root.inputs[key].node].outputs[root.inputs[key].output]) {
-						tmp = material.nodes[root.inputs[key].node].outputs[root.inputs[key].output];
-					} else {
-						tmp = root.inputs[key].node + '_' + root.inputs[key].output;
+			for(var key in input_type) {
+				code[key] = {
+					src : '',
+					result : '',
+					data : {
+						params : {}
 					}
-					
+				};
+
+				if(root.inputs[key].node) {
+					var lookup = {};
+					for(var global in globals)
+						lookup['#' + global + '#'] = globals[global].type;
+
+					result = this.compileNode(device, graph.nodes[root.inputs[key].node], graph.nodes, {}, lookup, code[key].data);
+
+					if(result === false) {
+						//Add logging
+						return false;
+					}
+
+					if(graph.nodes[root.inputs[key].node].value) {
+						returnParam = graph.nodes[root.inputs[key].node].value;
+					} else {
+						//If the previous node has a onliner output, use that, otherwise grab the output variable name
+						if(graph.nodes[root.inputs[key].node].outputs && graph.nodes[root.inputs[key].node].outputs[root.inputs[key].output]) {
+							returnParam = graph.nodes[root.inputs[key].node].outputs[root.inputs[key].output];
+						} else {
+							returnParam = root.inputs[key].node + '_' + root.inputs[key].output;
+						}
+					}
+				} else if(root.inputs[key].value) {
+					//TODO: Get globals from device!!!
+					returnParam = root.inputs[key].value;
+					result = '';
+					var regex = new RegExp();
+
+					for(var global in globals) {
+						regex.compile('#' + global + '#', 'g');
+						returnParam = returnParam.replace(regex, globals[global].name);
+					}
 				}
-
 				//Get output type from device ??!?!?!
-
-				code += '\n\n';
-				code += input_type[key] + ' get' + key + ' () {\n';
-				code += result;
-				code += 'return ' + tmp + ';\n';
-				code += '}';
-
+				code[key].src = result;
+				code[key].result = returnParam;
 			}
 
-			//var code = this.compileNode(root, material.nodes, {}, {});
-
-			console.log(code);
+			return code;
 		},
-		compileNode: function(current, nodes, visited, lookup) {
+		compileNode: function(device, current, nodes, visited, lookup, data) {
 			if(visited[current.name] === true) return false;
 
 			var code = '';
@@ -323,6 +420,7 @@ function(Ultra, _, Jvent, $) {
 
 			//Mark as visited
 			visited[current.name] = true;
+
 			//Compile all dependent nodes first
 			for(var key in current.inputs) {
 				if(current.inputs[key].value) {
@@ -334,12 +432,17 @@ function(Ultra, _, Jvent, $) {
 						return false;
 					}
 					//Compile the dependent node
-					result = this.compileNode(nodes[current.inputs[key].node], nodes, visited, lookup);
+					result = this.compileNode(device, nodes[current.inputs[key].node], nodes, visited, lookup, data);
 
 					//If we failed.. hmm nooo good
 					if(result !== false)
 						code += result;
 				}
+			}
+
+			if(current.type == 'custom') {
+				code += current.sources[device.getType()];
+				return code;
 			}
 
 			//Special handling for the output node..
@@ -350,16 +453,49 @@ function(Ultra, _, Jvent, $) {
 
 			//TODO: Change to get device type from active device
 			if(current.type != 'output')
-				code += this.compileFunction(current, nodes, 'webgl', lookup);
+				code += this.compileFunction(current, nodes, device, lookup, data);
 
 			return code;
 		},
-		compileFunction: function(node, nodes, device, lookup) {
+		compileString: function(src, node, func, device, lookup, input_map, float_type, globals) {
+			var regex = new RegExp('#(.*?)#', 'g');
+			src = src.replace(regex, function(org, param) {
+				if(input_map[param]) {
+					return input_map[param];
+				} else if(node.params[param]) {
+					return node.params[param].value;
+				} else if(func.outputs[param]) {
+					var type = device.convShaderParam(func.outputs[param].type);
+
+					type = type.replace(regex, function(org, param) {
+						if(node.params[param])
+							return node.params[param].value;
+					});
+
+					if(type == 'float*')
+						type = device.convShaderParam(float_type);
+
+					lookup[node.name + '_' + param] = type;
+					return node.name + '_' + param;
+				} else if(globals[param]) {
+
+					return globals[param].name;
+				}
+
+				return 'UNKNOWN';
+			});
+
+			regex.compile('float\\*');
+			src = src.replace(regex, float_type);
+
+			return src;
+		},
+		compileFunction: function(node, nodes, device, lookup, data) {
 			var func = this.functions[node.type];
-			var src = func.sources[device].src;
+			var src = func.sources[device.getType()].src;
 
 			//Compile any lua scripts first, for advanced functions
-			if(func.sources[device].lua) {
+			if(func.sources[device.getType()].lua) {
 				//First compile and run as lua script, this is to add support for more advanced stuff
 				var luaData = this.shaderToLuaTable(node, lookup);
 				var luaFunc = lua_load('function compile(data) \n ' + src + ' \n end');
@@ -371,33 +507,28 @@ function(Ultra, _, Jvent, $) {
 
 			//create output params
 			var key;
-			var regex = new RegExp();
 			var tmp;
+			var value = '';
 
+			//Create input map
+			var float_type = 'float';
+			var input_map = {};
+			var output_map = {};
 			node.outputs = {};
 
-			//Create all the output parameters
-			for(key in func.outputs) {
-				//Add the name -> type lookup table
-				lookup[node.name + '_' + key] = func.outputs[key].type;
-				src = src.replace('#' + key + '#', node.name + '_' + key);
+			//TODO: Get from device!!!
+			var globals = device.getShaderGlobals();
 
-				//If the output has a "one liner" that can be carried used as a parameter then use that
-				if(func.outputs[key].src[device]) {
-					node.outputs[key] = func.outputs[key].src[device];
+			for(key in func.params) {
+				if(func.params[key].type && func.params[key].type.indexOf('tex') != -1) {
+					data.params[node.params[key].value] = {
+						name : node.params[key].value,
+						type : func.params[key].type
+					};
 				}
 			}
 
-			//We need to inject output params in to the oneliner output code
-			for(key in func.outputs) {
-				for(var output in node.outputs) {
-					node.outputs[output] = node.outputs[output].replace('#' + key + '#', node.name + '_' + key);
-				}
-			}
-
-			//Replace all input vars with the correct value / input paramater name
 			for(key in func.inputs) {
-
 				//Make sure all inputs are bound, and in some cases use default value
 				if(!node.inputs[key] && !func.inputs[key]['default']) {
 					console.log('Input ' + key + 'not bound' );
@@ -408,43 +539,45 @@ function(Ultra, _, Jvent, $) {
 					};
 				}
 
-				regex.compile('#' + key + '#', 'g');
-				
-				//Find the parameter, value or an output from an previouse node
 				if(node.inputs[key].value) {
-					tmp = node.inputs[key].value;
+					value = node.inputs[key].value;
+					tmp = lookup[node.inputs[key].value];
+					if(!tmp)
+						tmp = 'float';
 				} else {
 					//If the previous node has a onliner output, use that, otherwise grab the output variable name
-					if(nodes[node.inputs[key].node].outputs[node.inputs[key].output]) {
-						tmp = nodes[node.inputs[key].node].outputs[node.inputs[key].output];
-					} else {
-						tmp = node.inputs[key].node + '_' + node.inputs[key].output;
+					value = node.inputs[key].node + '_' + node.inputs[key].output;
+					tmp = lookup[node.inputs[key].node + '_' + node.inputs[key].output];
+
+					if(nodes[node.inputs[key].node].outputs && nodes[node.inputs[key].node].outputs[node.inputs[key].output]) {
+						value = nodes[node.inputs[key].node].outputs[node.inputs[key].output];
 					}
-					
 				}
 
-				//Compile this nodes one liner outputs, replace inputs with correct variable names
-				src = src.replace(regex, tmp);
-				for(var output in node.outputs) {
-					node.outputs[output] = node.outputs[output].replace(regex, tmp);
+				if(func.inputs[key].type == 'float*' && float_type < tmp) {
+					float_type = tmp;
+				}
+
+				value = this.compileString(value, node, func, device, lookup, input_map, device.convShaderParam(float_type), globals);
+
+				input_map[key] = value;
+			}
+
+			//Process one line outputs, add there types
+			for(key in func.outputs) {
+				if(func.outputs[key].src[device.getType()]) {
+					node.outputs[key] = func.outputs[key].src[device.getType()];
+
+					if(func.outputs[key].type == 'float*')
+						lookup[node.name + '_' + key] = float_type;
+					else
+						lookup[node.name + '_' + key] = func.outputs[key].type;
+
+					node.outputs[key] = this.compileString(node.outputs[key], node, func, device, lookup, input_map, device.convShaderParam(float_type), globals);
 				}
 			}
 
-			//Add all the parameters to the code
-			for(key in func.params) {
-				if(!node.params[key]) {
-					console.log('Param ' + key + 'not bound' );
-					return '';
-				}
-				src = src.replace('#' + key + '#', node.params[key].value);
-			}
-
-			//TODO: Get globals from device!!!
-			regex.compile('#global.pos#', 'g');
-			src = src.replace(regex, 'vPositon');
-
-			regex.compile('#global.uv.0#', 'g');
-			src = src.replace(regex, 'vUV');
+			src = this.compileString(src, node, func, device, lookup, input_map, device.convShaderParam(float_type), globals);
 
 			return src.trim() + '\n';
 		}

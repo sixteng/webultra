@@ -3,6 +3,16 @@ define([
 function() {
 	'use strict';
 	return {
+		shaderGlobals : {
+			'global.pos' : {
+				type : 'vec3',
+				name : 'aVertexPosition'
+			},
+			'global.uv.0' : {
+				type : 'vec2',
+				name : 'aTextureCoord'
+			}
+		},
 		setfloat: function(device, param) {
 			device.gl.uniform1f(param.webgl.loc, param.data);
 		},

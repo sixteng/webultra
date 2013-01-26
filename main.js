@@ -80,8 +80,10 @@ function (Ultra) {
 	var deffered = new Ultra.Web3DEngine.RenderSystem.Renderer.Deffered(engine);
 
 	//Executes when the engine is done setting up
-	engine.on('init', function(e, device) { 
+	engine.on('init', function(e, device) {
 		//Enter Main Loop
+		//engine.shaderBuilder.materials['terrain'].getShaderProgram(device, ['deffered_color_base_vs', 'deffered_color_base_ps']);
+
 		engine.run();
 	});
 
@@ -90,30 +92,16 @@ function (Ultra) {
 	engine.shaderManager.loadFromFile('/assets/shaders/deffered.xml');
 	engine.shaderManager.loadFromFile('/assets/shaders/water.xml');
 
-	//Shader Builder
-	//var shaderBuilder = new Ultra.Web3DEngine.Shader2.Builder(engine.fileManager);
-	//shaderBuilder.loadFunctionsFromFile('/assets/shaders/basic_shader_functions.xml');
-	
-	//shaderBuilder.once('load', function() {
-	//	shaderBuilder.loadMaterialsFromFile('/assets/materials/terrain.xml');
-	//	shaderBuilder.once('load', function() {
-	//		shaderBuilder.compile(shaderBuilder.materials['terrain']);
-	//	});
-	//});
-	/*
-	if(func.sources[$(sources[i]).attr('device')].lua) {
-		self.compile(func.sources[$(sources[i]).attr('device')], {
-			inputs : { value : { name : 'value', type : 'float3'} },
-			outputs : {}
-		});
-	}
-	*/
+	engine.shaderBuilder.loadFunctionsFromFile('/assets/shaders/basic_shader_functions.xml');
+	engine.shaderBuilder.loadBaseShadersFromFile('/assets/shaders/base.xml');
+	engine.shaderBuilder.loadMaterialsFromFile('/assets/materials/terrain.xml');
 
 	//Create Terrain Patches
 	terrain = new Ultra.Web3DEngine.Terrain(engine);
 	terrain.buildPlanes();
 	terrain.addPatch('/assets/images/heightmap.png');
-	terrain.material = new Ultra.Web3DEngine.Material.Base();
+	//terrain.material = new Ultra.Web3DEngine.Material.Base();
+	terrain.material = 'terrain';
 	//terrain.addPatch('/assets/images/heightmap.png', [127, 0]);
 
 	//Create the water plane for the terrain
@@ -182,7 +170,7 @@ function (Ultra) {
 	scene.add(house);
 	scene.add(skybox);
 
-	console.log(scene.traverse(Ultra.Enum.Scene.OPAQUE));
+	//console.log(scene.traverse(Ultra.Enum.Scene.OPAQUE));
 
 	//Load the heightmap to be able to lookup height data to position the camera
 	var heightMapCtx;
@@ -211,19 +199,20 @@ function (Ultra) {
 
 		camera.setPosition([pos[0], -(data[0] / 255 * 25 + 2), pos[2]]);
 	});
-
+	
 
 	//Move camera on tick, 
 	engine.on('tick', camera.tick.bind(camera));
 	//Bind the main render function
 	engine.on('tick', onTick);
 
-	//Initialize the engine
-	engine.init();
+	
 
 	//Enable capture of input
 	im.enable();
 
+	//Initialize the engine
+	engine.init();
 	//Toggle wireframe rendering
 	$('#wireframe').change(function() {
 		if($('#wireframe').is(':checked'))

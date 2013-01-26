@@ -82,7 +82,6 @@ define(['ultra/ultra', 'underscore', 'ultra_engine/resources/texture', 'ultra_en
 
 			//Terrain
 			objects[0].render(device, camera, shader);
-
 			//Mesh
 			shader = this.engine.shaderManager.getShaderProgram(['deffered_normal_basic_vs', 'deffered_normal_basic_ps']);
 
@@ -100,6 +99,12 @@ define(['ultra/ultra', 'underscore', 'ultra_engine/resources/texture', 'ultra_en
 			if(!shader) {
 				device.setRenderTarget(null);
 				return;
+			}
+
+			var mat = objects[0].getMaterial(this.engine);
+			if(mat) {
+				shader = mat.getShaderProgram(device, ['deffered_color_base_vs', 'deffered_color_base_ps']);
+				//shader = shader.compile(device);
 			}
 
 			objects[0].render(device, camera, shader);

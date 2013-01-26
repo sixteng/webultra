@@ -3,7 +3,7 @@
 		<dependency path="" />
 		//Position
 		<node name="tex1" type="sample2D" title="Texture" version="1.0">
-			<param name="texture" value="uSampler"/>
+			<param name="texture" value="uSampler" type="tex2d"/>
 		</node>
 		<node name="split1" type="split" title="" version="1.0">
 			<input name="value" node="tex1" output="color"/>
@@ -31,19 +31,19 @@
 			<input name="value" node="div1" output="output"/>
 		</node>
 		<node name="tex2" type="sample2D" title="Texture" version="1.0">
-			<param name="texture" value="uSampler"/>
+			<param name="texture" value="uSampler" type="tex2d"/>
 			<input name="offset_x" node="neg1" output="output"/>
 		</node>
 		<node name="tex3" type="sample2D" title="Texture" version="1.0">
-			<param name="texture" value="uSampler"/>
+			<param name="texture" value="uSampler" type="tex2d"/>
 			<input name="offset_x" node="div1" output="output"/>
 		</node>
 		<node name="tex4" type="sample2D" title="Texture" version="1.0">
-			<param name="texture" value="uSampler"/>
+			<param name="texture" value="uSampler" type="tex2d"/>
 			<input name="offset_y" node="neg1" output="output"/>
 		</node>
 		<node name="tex5" type="sample2D" title="Texture" version="1.0">
-			<param name="texture" value="uSampler"/>
+			<param name="texture" value="uSampler" type="tex2d"/>
 			<input name="offset_y" node="div1" output="output"/>
 		</node>
 		<node name="sub1" type="sub" title="" version="1.0">
@@ -77,9 +77,113 @@
 			<input name="value1" node="normalize1" output="output"/>
 			<input name="value2" node="normalize2" output="output"/>
 		</node>
+		
+
+		//Diffuse
+		<node name="tex6" type="sample2D" title="Texture" version="1.0">
+			<param name="texture" value="mask" type="tex2d"/>
+		</node>
+		<node name="mul2" type="mul" title="" version="1.0">
+			<input name="value1" value="#global.uv.0#"/>
+			<input name="value2" value="2.0"/>
+		</node>
+		<node name="tex7" type="sample2D" title="Texture" version="1.0">
+			<param name="texture" value="combined" type="tex2d"/>
+			<input name="uv" node="mul2" output="output"/>
+		</node>
+		<node name="merge4" type="merge" title="" version="1.0">
+			<param name="type" value="float4"/>
+			<input name="input_x" value="0.0"/>
+			<input name="input_y" value="0.0"/>
+			<input name="input_z" value="0.0"/>
+			<input name="input_w" value="0.0"/>
+		</node>
+		<node name="custom1" type="custom" title="If Statement" version="1.0">
+			<input node="tex6" />
+			<src device="webgl">
+if(tex6_color.r > 0.5) {
+	tex6_color.r = (tex6_color.r - 0.5) * 2.0;
+	merge4_output = mix(vec4(0.0, 1.0, 0.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0), tex6_color.r);
+} else {
+	tex6_color.r = tex6_color.r * 2.0;
+	merge4_output = mix(vec4(1.0, 0.0, 0.0, 0.0), vec4(0.0, 1.0, 0.0, 0.0), tex6_color.r);
+}
+			</src>
+		</node>
+		<node name="exec1" type="exec" title="" version="1.0">
+			<input name="input_1" node="merge4" output="output"/>
+			<input name="input_2" node="custom1" output="output"/>
+		</node>
+
+		<node name="mul3" type="mul" title="" version="1.0">
+			<input name="value1" node="tex7" output="color"/>
+			<input name="value2" node="exec1" output="output"/>
+		</node>
+
+		<node name="split2" type="split" title="" version="1.0">
+			<input name="value" node="mul3" output="output"/>
+		</node>
+
+		<node name="merge5" type="merge" title="" version="1.0">
+			<param name="type" value="float3"/>
+			<input name="input_x" value="0.798"/>
+			<input name="input_y" value="0.750"/>
+			<input name="input_z" value="0.678"/>
+		</node>
+
+		<node name="merge6" type="merge" title="" version="1.0">
+			<param name="type" value="float3"/>
+			<input name="input_x" value="0.777"/>
+			<input name="input_y" value="1.0"/>
+			<input name="input_z" value="0.637"/>
+		</node>
+
+		<node name="merge7" type="merge" title="" version="1.0">
+			<param name="type" value="float3"/>
+			<input name="input_x" value="0.9"/>
+			<input name="input_y" value="0.964"/>
+			<input name="input_z" value="1.0"/>
+		</node>
+
+		<node name="mul4" type="mul" title="" version="1.0">
+			<input name="value1" node="split2" output="output_x"/>
+			<input name="value2" node="merge5" output="output"/>
+		</node>
+		<node name="mul5" type="mul" title="" version="1.0">
+			<input name="value1" node="split2" output="output_y"/>
+			<input name="value2" node="merge6" output="output"/>
+		</node>
+		<node name="mul6" type="mul" title="" version="1.0">
+			<input name="value1" node="split2" output="output_z"/>
+			<input name="value2" node="merge7" output="output"/>
+		</node>
+
+		<node name="add1" type="add" title="" version="1.0">
+			<input name="value1" node="mul4" output="output"/>
+			<input name="value2" node="mul5" output="output"/>
+		</node>
+		<node name="add2" type="add" title="" version="1.0">
+			<input name="value1" node="add1" output="output"/>
+			<input name="value2" node="mul6" output="output"/>
+		</node>
+
+		<node name="split4" type="split" title="" version="1.0">
+			<input name="value" node="add2" output="output"/>
+		</node>
+
+		<node name="merge8" type="merge" title="" version="1.0">
+			<param name="type" value="float4"/>
+			<input name="input_x" node="split4" output="output_x"/>
+			<input name="input_y" node="split4" output="output_y"/>
+			<input name="input_z" node="split4" output="output_z"/>
+			<input name="input_w" value="1.0"/>
+		</node>
+
 		<node name="output" type="output" title="" version="1.0">
 			<input name="position" node="merge1" output="output"/>
 			<input name="normal" node="cross1" output="output"/>
+			<input name="uvs" value="#global.uv.0#"/>
+			<input name="diffuse" node="merge8" output="output"/>
 		</node>
 	</material>
 </materials>

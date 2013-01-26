@@ -90,6 +90,19 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 
 			this.gl.clear(clearBit);
 		},
+		convShaderParam: function(param) {
+			if(param == 'float2')
+				return 'vec2';
+			else if(param == 'float3')
+				return 'vec3';
+			else if(param == 'float4')
+				return 'vec4';
+
+			return param;
+		},
+		getShaderGlobals: function() {
+			return ShaderUtils.shaderGlobals;
+		},
 		onResize: function() {
 			if(!this.gl) return;
 			
@@ -153,6 +166,7 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 
 			if(!this.gl.getShaderParameter(compiledshader, this.gl.COMPILE_STATUS)) {
 				//TODO: Add logging
+				console.log(src);
 				console.log(this.gl.getShaderInfoLog(compiledshader));
 				//alert("An error occurred compiling the shaders: " + gl.getShaderInfoLog(shader));
 
@@ -177,6 +191,7 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 			if(!this.gl.getShaderParameter(compiledshader, this.gl.COMPILE_STATUS)) {
 				//TODO: Add logging
 				//alert("An error occurred compiling the shaders: " + gl.getShaderInfoLog(shader));
+				console.log(src);
 				console.log(this.gl.getShaderInfoLog(compiledshader));
 				return null;
 			}
@@ -199,6 +214,43 @@ function(Ultra, _, Jvent, ShaderUtils, WebGLUtils) {
 			var i;
 			for(i = 0; i < shader_program.shaders.length; i += 1) {
 				var compiledShader = shader_program.shaders[i].compile(this);
+				if(compiledShader === null)
+					return null;
+
+				compiledShaders.push(compiledShader);
+			}
+
+			var shaderProgram = this.gl.createProgram();
+			for(i = 0; i < compiledShaders.length; i += 1) {
+				this.gl.attachShader(shaderProgram, compiledShaders[i]);
+			}
+
+			this.gl.linkProgram(shaderProgram);
+
+			if(!this.gl.getProgramParameter(shaderProgram, this.gl.LINK_STATUS)) {
+				console.log(this.gl.getProgramInfoLog(shaderProgram));
+
+				return null;
+			}
+
+			this.gl.useProgram(shaderProgram);
+
+			for(var key in shader_program.params) {
+				shader_program.params[key].webgl = { loc : this.gl.getUniformLocation(shaderProgram, key), type : 'uniform'};
+				if(shader_program.params[key].webgl.loc === null) {
+					shader_program.params[key].webgl = { loc : this.gl.getAttribLocation(shaderProgram, key), type : 'attr'};
+				}
+			}
+
+			return shaderProgram;
+		},
+		compileShaderProgram2: function(shader_program, sources) {
+			if(!this.gl) return null;
+
+			var compiledShaders = [];
+			var i;
+			for(i = 0; i < sources.length; i += 1) {
+				var compiledShader = this.compileShader(sources[i]);
 				if(compiledShader === null)
 					return null;
 

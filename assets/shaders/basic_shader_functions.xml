@@ -40,14 +40,14 @@
 		<input name="value2" title="Value2" type="float*" default="" /> 
 		<output name="output" title="Output" type="float*"/> 
 		<src device="webgl" version="1.0">
-			#output# = cross(#value1#, #value2#);
+			float* #output# = cross(#value1#, #value2#);
 		</src>
 	</function>
 	<function name="normalize" title="Normalize">
 		<input name="value" title="Value" type="float*" default="" /> 
 		<output name="output" title="Output" type="float*"/> 
 		<src device="webgl" version="1.0">
-			#output# = normalize(#value#);
+			float* #output# = normalize(#value#);
 		</src>
 	</function>
 	<function name="mul" title="Multiply">
@@ -55,7 +55,7 @@
 		<input name="value2" title="Value" type="float*" default="" /> 
 		<output name="output" title="Output" type="float*"/> 
 		<src device="webgl" version="1.0">
-			#output# = #value1# * #value2#;
+			float* #output# = #value1# * #value2#;
 		</src>
 	</function>
 	<function name="div" title="Divide">
@@ -63,7 +63,15 @@
 		<input name="value2" title="Value" type="float*" default="" /> 
 		<output name="output" title="Output" type="float*"/> 
 		<src device="webgl" version="1.0">
-			#output# = #value1# / #value2#;
+			float* #output# = #value1# / #value2#;
+		</src>
+	</function>
+	<function name="add" title="Addition">
+		<input name="value1" title="Value" type="float*" default="" />
+		<input name="value2" title="Value" type="float*" default="" /> 
+		<output name="output" title="Output" type="float*"/> 
+		<src device="webgl" version="1.0">
+			float* #output# = #value1# + #value2#;
 		</src>
 	</function>
 	<function name="sub" title="Subtract">
@@ -71,7 +79,7 @@
 		<input name="value2" title="Value" type="float*" default="" /> 
 		<output name="output" title="Output" type="float*"/> 
 		<src device="webgl" version="1.0">
-			#output# = #value1# - #value2#;
+			float* #output# = #value1# - #value2#;
 		</src>
 	</function>
 	<function name="neg" title="Negate">
@@ -124,6 +132,17 @@
 			end
 
 			return src
+		</src>
+	</function>
+	<function name="exec" title="Execute">
+		<input name="input_1" title="First" type="float*" default=""/>
+		<input name="input_2" title="Second" type="none" default=""/> 
+
+		<output name="output" title="Output" type="float*">
+			<src device="webgl" version="1.0">#input_1#</src>
+		</output>
+
+		<src device="webgl" version="1.0">
 		</src>
 	</function>
 </functions>

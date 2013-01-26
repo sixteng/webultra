@@ -113,6 +113,16 @@ define(['ultra/ultra', 'underscore'], function(Ultra, _) {
 				this.updateMatrix();
 
 			return this.matrix;
+		},
+		getMaterial: function(engine) {
+			if(_.isString(this.material)) {
+				if(!engine.shaderBuilder.materials[this.material])
+					return null;
+
+				this.material = engine.shaderBuilder.materials[this.material];
+			}
+
+			return this.material;
 		}
 	});
 });

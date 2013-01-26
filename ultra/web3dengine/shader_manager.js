@@ -131,6 +131,25 @@ define(['ultra/ultra', 'underscore', 'Jvent', 'jquery', 'ultra_engine/engine'], 
 			this.compiled[device.getName()] = device.compileShader(this);
 
 			return this.compiled[device.getName()];
+		},
+		clone: function() {
+			var shader = {
+				src : {},
+				type : this.type,
+				params : {}
+			};
+
+			for(var key in this.src) {
+				shader.src[key] = this.src[key];
+			}
+
+			for(var key2 in this.params) {
+				shader.params[key2] = {
+					type :  this.params[key2].type
+				};
+			}
+
+			return shader;
 		}
 	});
 });
